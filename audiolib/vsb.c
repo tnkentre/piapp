@@ -35,6 +35,7 @@
 #include "vsb.h"
 
 struct VSB_State_ {
+  AC_HEADER(0,0);  
   /* configuration and history */
   int    size;
   float* buf[2];
@@ -59,12 +60,12 @@ VSB_State *vsb_init(const char * name, int size)
   VSB_State* st;
   st = MEM_ALLOC(MEM_SDRAM, VSB_State, 1, 8);
 
-  AC_ADD(name, CLI_VSB, st, "VSB");
-  AC_ADD_REG(rd, CLI_VSB);
+  //  AC_ADD(name, CLI_VSB, st, "VSB");
+  //  AC_ADD_REG(rd, CLI_VSB);
 
   st->size = size;
-  st->buf[0] = new float[st->size];
-  st->buf[1] = new float[st->size];
+  st->buf[0] = MEM_ALLOC(MEM_SDRAM, float, st->size, 8);
+  st->buf[1] = MEM_ALLOC(MEM_SDRAM, float, st->size, 8);
   vec_set(st->buf[0], 0.0f, st->size);
   vec_set(st->buf[1], 0.0f, st->size);
   st->ipos   = 0;
@@ -75,6 +76,8 @@ VSB_State *vsb_init(const char * name, int size)
   st->writestock[0] = 0.0f;
   st->writestock[1] = 0.0f;
   st->idxstock      = 0;
+
+  return st;
 }
 
 void vsb_process(VSB_State * restrict st, float* dst[], float* src[], float* speed, int len)

@@ -35,6 +35,7 @@
 #include "tcanalysis.h"
 
 struct TCANALYSIS_State_ {
+  AC_HEADER(0,0);
   /* configuration and history */
   float fs;
   float zcr_base;
@@ -42,8 +43,8 @@ struct TCANALYSIS_State_ {
   float speed;
   float tcL;
   float tcR;
-  int   acr_L;
-  int   acr_R;
+  int   zcr_L;
+  int   zcr_R;
 
   /* parameters */
   float level_thld;
@@ -62,8 +63,8 @@ TCANALYSIS_State *tcanalysis_init(const char * name, float fs, float freq_tc)
   TCANALYSIS_State* st;
   st = MEM_ALLOC(MEM_SDRAM, TCANALYSIS_State, 1, 8);
 
-  AC_ADD(name, CLI_TCANALYSIS, st, "TC analysis");
-  AC_ADD_REG(rd, CLI_TCANALYSIS);
+  //  AC_ADD(name, CLI_TCANALYSIS, st, "TC analysis");
+  //  AC_ADD_REG(rd, CLI_TCANALYSIS);
   
   st->fs         = fs;
   st->zcr_base   = fs / freq_tc;
@@ -77,6 +78,8 @@ TCANALYSIS_State *tcanalysis_init(const char * name, float fs, float freq_tc)
   st->level_thld = -40.0f;
   st->level      = -100.0f;
   st->level_avg  = -100.0f;
+
+  return st;
 }
 
 void tcanalysis_process(TCANALYSIS_State * restrict st, float* speed, float* tcL, float* tcR, int len)
