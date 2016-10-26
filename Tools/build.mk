@@ -19,37 +19,23 @@
 #
 #*******************************************************************************
 
-# version: $LastChangedRevision: 6177 $
+# version: $LastChangedRevision: 6317 $
 # author: zkhan
 
-# Prefix for this module
-export MODULE_PREFIX = audiolib2
+# C++ Source files
+CXXSRC	= \
 
-export AC := $(SVNROOT)/AudioComponents/trunk
+# C Source files
+CSRC	= \
+	CliClient.c	\
 
-# Type of output this module will produce: archive (.a), dynamic (.so), or exe
-export MODULE_OUTPUT = archive
 
-# Version of this module, this could be auto filled by SVN
-export MODULE_VERSION = 1.0
+# Assembly files
+SSRC	= \
+	$(MODULE_PREPROCESS_FILE:.tcf=.asm) \
 
-# List dirs in order for making
-export MODULE_SUB_DIRS		:= 	\
-	. \
 
-export MODULE_CFLAGS += \
-	-I$(AC)/Include.$(PLATFORM) \
-	-I$(AC)/audiolib/speex/include \
-	-DWITH_POSIX -Drestrict="" \
+# Files to export to INCLUDE_DIR
+HEADERS	=  \
 
-export MODULE_LDFLAGS = \
-
-export MODULE_EXTERN_LIBS := \
-
-export MODULE_PREPROCESS_FILE := 
-
-export MODULE_ARCHIVES := \
-
-# Cross compile flags, do not change
--include $(BASE_DIR)/Build/def-$(PLATFORM).mk
--include $(BASE_DIR)/Build/module-common.mk
+-include $(BASE_DIR)/Build/rules.mk

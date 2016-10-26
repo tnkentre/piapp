@@ -23,12 +23,12 @@
 # author: zkhan
 
 # Prefix for this module
-export MODULE_PREFIX = audiolib2
+export MODULE_PREFIX = CliClient
 
 export AC := $(SVNROOT)/AudioComponents/trunk
 
 # Type of output this module will produce: archive (.a), dynamic (.so), or exe
-export MODULE_OUTPUT = archive
+export MODULE_OUTPUT = exe
 
 # Version of this module, this could be auto filled by SVN
 export MODULE_VERSION = 1.0
@@ -38,11 +38,11 @@ export MODULE_SUB_DIRS		:= 	\
 	. \
 
 export MODULE_CFLAGS += \
+	-I../Audio	\
 	-I$(AC)/Include.$(PLATFORM) \
-	-I$(AC)/audiolib/speex/include \
-	-DWITH_POSIX -Drestrict="" \
+	-DWITH_POSIX \
 
-export MODULE_LDFLAGS = \
+export MODULE_LDFLAGS += \
 
 export MODULE_EXTERN_LIBS := \
 

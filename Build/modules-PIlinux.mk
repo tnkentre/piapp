@@ -25,6 +25,8 @@
 # List of module to make (note that order is important) 
 export MODULES	=	\
 	audiolib	\
+	Audio	\
+	Tools	\
 
 
 

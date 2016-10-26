@@ -23,12 +23,12 @@
 # author: zkhan
 
 # Prefix for this module
-export MODULE_PREFIX = audiolib2
+export MODULE_PREFIX = AudioServer
 
 export AC := $(SVNROOT)/AudioComponents/trunk
 
 # Type of output this module will produce: archive (.a), dynamic (.so), or exe
-export MODULE_OUTPUT = archive
+export MODULE_OUTPUT = exe
 
 # Version of this module, this could be auto filled by SVN
 export MODULE_VERSION = 1.0
@@ -42,9 +42,15 @@ export MODULE_CFLAGS += \
 	-I$(AC)/audiolib/speex/include \
 	-DWITH_POSIX -Drestrict="" \
 
-export MODULE_LDFLAGS = \
+export MODULE_LDFLAGS += \
+	-ljack \
 
 export MODULE_EXTERN_LIBS := \
+	$(addprefix $(AC)/Build.$(PLATFORM)/, \
+	audiolib.a \
+	aec640.a \
+	) \
+	$(AC)/audiolib/DSP/c674x/dsplib_v12/libc6xlinux.a \
 
 export MODULE_PREPROCESS_FILE := 
 
