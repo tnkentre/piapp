@@ -33,18 +33,19 @@
 #include "vectors.h"
 #include "cli.h"
 #include "AudioFwk.h"
-#include "AudioProc.h"
 #include "FB.h"
 #include "FB_filters.h"
-#include "subbandaec.h"
+#include "tcanalysis.h"
+#include "vsb.h"
+#include "AudioProc.h"
 
 /*
  * AEC functions
  */
 #define FS           (48000)
 #define FRAME_SIZE   (FS/100)
-#define NCH_INPUT    (2)
-#define NCH_OUTPUT   (2)
+#define NCH_INPUT    (6)
+#define NCH_OUTPUT   (6)
 
 /* AudioProc State */
 typedef struct {
@@ -54,6 +55,10 @@ typedef struct {
   int nch_output;
 
   /* AC states */
+  TCANALYSIS_State * tcana_L;
+  TCANALYSIS_State * tcana_R;
+  VSB_State * vsb_L;
+  VSB_State * vsb_R;
 
   /* Task handler */
   char             tskName[32];
@@ -64,7 +69,7 @@ typedef struct {
   
   /* Audio FWK (JACK interface) */
   AudioFwkState*   audfwk;
-  
+
 } AudioProcState;
 
 /* command format of Mailbox */
@@ -83,12 +88,26 @@ static void proc(AudioProcState* st, float * out[], float* in[])
   int nch_input  = st->nch_input;
   int nch_output = st->nch_output;
 
+  VARDECLR(float, speed_L);
+  VARDECLR(float, speed_R);
+  SAVE_STACK;
+  ALLOC(speed_L, frame_size, float);
+  ALLOC(speed_R, frame_size, float);
+  
   for (ch=0; ch<MIN(nch_input, nch_output); ch++) {
     COPY(out[ch], in[ch], frame_size);
   }
   for (; ch<nch_output; ch++) {
     vec_set(out[ch], 0.f, frame_size);
   }
+
+  tcanalysis_process(st->tcana_L, speed_L, in[2], in[3], frame_size);
+  tcanalysis_process(st->tcana_R, speed_R, in[4], in[5], frame_size);
+  vsb_process(st->vsb_L, &out[2], &in[0], speed_L, frame_size);  
+  vsb_process(st->vsb_R, &out[4], &in[0], speed_R, frame_size);
+
+  RESTORE_STACK;
+  
 }
 
 /*----------------------------------
@@ -135,6 +154,12 @@ void AudioProc_init(void)
   st->nch_input  = NCH_INPUT;
   st->nch_output = NCH_OUTPUT;
 
+
+  st->tcana_L = tcanalysis_init("tcana_L", FS, 1000.f);
+  st->tcana_R = tcanalysis_init("tcana_R", FS, 1000.f);
+  st->vsb_L = vsb_init("vsb_L", (int)(FS * 60.f / 33.3f));
+  st->vsb_R = vsb_init("vsb_R", (int)(FS * 60.f / 33.3f));
+  
   /* initialize mailbox */
   st->mbx = MBX_create(sizeof(cmd_desc_t), 1, NULL);
   /* initialize semapho */

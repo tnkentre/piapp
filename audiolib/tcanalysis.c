@@ -56,6 +56,7 @@ static const RegDef_t rd[] = {
   AC_REGDEF(level_thld,   CLI_ACFPTM,   TCANALYSIS_State, "Level threshold to detect input signal."),
   AC_REGDEF(level,        CLI_ACFPTM,   TCANALYSIS_State, "Actual level of input"),
   AC_REGDEF(level_avg,    CLI_ACFPTM,   TCANALYSIS_State, "Average level of input"),
+  AC_REGDEF(speed,        CLI_ACFPTM,   TCANALYSIS_State, "Speed"),
 };
 
 TCANALYSIS_State *tcanalysis_init(const char * name, float fs, float freq_tc)
@@ -63,8 +64,8 @@ TCANALYSIS_State *tcanalysis_init(const char * name, float fs, float freq_tc)
   TCANALYSIS_State* st;
   st = MEM_ALLOC(MEM_SDRAM, TCANALYSIS_State, 1, 8);
 
-  //  AC_ADD(name, CLI_TCANALYSIS, st, "TC analysis");
-  //  AC_ADD_REG(rd, CLI_TCANALYSIS);
+  AC_ADD(name, CLI_RLSL_NE, st, "TC analysis");
+  AC_ADD_REG(rd, CLI_RLSL_NE);
   
   st->fs         = fs;
   st->zcr_base   = fs / freq_tc;

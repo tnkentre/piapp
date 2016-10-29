@@ -60,8 +60,8 @@ VSB_State *vsb_init(const char * name, int size)
   VSB_State* st;
   st = MEM_ALLOC(MEM_SDRAM, VSB_State, 1, 8);
 
-  //  AC_ADD(name, CLI_VSB, st, "VSB");
-  //  AC_ADD_REG(rd, CLI_VSB);
+  AC_ADD(name, CLI_RLSL_FE, st, "VSB");
+  AC_ADD_REG(rd, CLI_RLSL_FE);
 
   st->size = size;
   st->buf[0] = MEM_ALLOC(MEM_SDRAM, float, st->size, 8);

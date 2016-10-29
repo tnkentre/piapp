@@ -40,6 +40,7 @@ export MODULE_SUB_DIRS		:= 	\
 export MODULE_CFLAGS += \
 	-I$(AC)/Include.$(PLATFORM) \
 	-I$(AC)/audiolib/speex/include \
+	-I../audiolib \
 	-DWITH_POSIX -Drestrict="" \
 
 export MODULE_LDFLAGS += \
@@ -51,6 +52,7 @@ export MODULE_EXTERN_LIBS := \
 	aec640.a \
 	) \
 	$(AC)/audiolib/DSP/c674x/dsplib_v12/libc6xlinux.a \
+	$(SVNROOT)/piapp/Build.$(PLATFORM)/audiolib2.a \
 
 export MODULE_PREPROCESS_FILE := 
 
