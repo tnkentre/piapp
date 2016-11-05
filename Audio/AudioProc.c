@@ -46,6 +46,7 @@
 #define FRAME_SIZE   (FS/100)
 #define NCH_INPUT    (6)
 #define NCH_OUTPUT   (6)
+#define NLAYER       (8)
 
 /* AudioProc State */
 typedef struct {
@@ -54,11 +55,15 @@ typedef struct {
   int nch_input;
   int nch_output;
 
+  /* Parameters */
+  int ActiveLayer_L;
+  int ActiveLayer_R;
+
   /* AC states */
   TCANALYSIS_State * tcana_L;
   TCANALYSIS_State * tcana_R;
-  VSB_State * vsb_L;
-  VSB_State * vsb_R;
+  VSB_State * vsb_L[NLAYER];
+  VSB_State * vsb_R[NLAYER];
 
   /* Task handler */
   char             tskName[32];
@@ -87,12 +92,26 @@ static void proc(AudioProcState* st, float * out[], float* in[])
   int frame_size = st->frame_size;
   int nch_input  = st->nch_input;
   int nch_output = st->nch_output;
+  float* tmp[2];
+  float* blank[2];
 
   VARDECLR(float, speed_L);
   VARDECLR(float, speed_R);
+  VARDECLR(float, tmpL);
+  VARDECLR(float, tmpR);
+  VARDECLR(float, zeros);
   SAVE_STACK;
   ALLOC(speed_L, frame_size, float);
   ALLOC(speed_R, frame_size, float);
+  ALLOC(tmpL,    frame_size, float);
+  ALLOC(tmpR,    frame_size, float);
+  ALLOC(zeros,   frame_size, float);
+
+  tmp[0]   = tmpL;
+  tmp[1]   = tmpR;
+  blank[0] = zeros;
+  blank[1] = zeros;  
+  vec_set(zeros, 0.f, frame_size);
   
   for (ch=0; ch<MIN(nch_input, nch_output); ch++) {
     COPY(out[ch], in[ch], frame_size);
@@ -101,10 +120,33 @@ static void proc(AudioProcState* st, float * out[], float* in[])
     vec_set(out[ch], 0.f, frame_size);
   }
 
+  /* Compute speed from TC sound */
   tcanalysis_process(st->tcana_L, speed_L, in[2], in[3], frame_size);
   tcanalysis_process(st->tcana_R, speed_R, in[4], in[5], frame_size);
-  vsb_process(st->vsb_L, &out[2], &in[0], speed_L, frame_size);  
-  vsb_process(st->vsb_R, &out[4], &in[0], speed_R, frame_size);
+
+  /* Turntable on left side */
+  vec_set(out[2], 0.f, frame_size);
+  vec_set(out[3], 0.f, frame_size);
+  for (ch=0; ch<NLAYER; ch++) {
+    if (ch == st->ActiveLayer_L)
+      vsb_process(st->vsb_L[ch], tmp, &in[0], speed_L, frame_size);
+    else
+      vsb_process(st->vsb_L[ch], tmp, blank,  speed_L, frame_size);
+    vec_add1(out[2], tmp[0], frame_size);
+    vec_add1(out[3], tmp[1], frame_size);
+  }
+    
+  vec_set(out[4], 0.f, frame_size);
+  vec_set(out[5], 0.f, frame_size);
+  for (ch=0; ch<NLAYER; ch++) {
+    /* Turntable on right side */
+    if (ch == st->ActiveLayer_R)
+      vsb_process(st->vsb_R[ch], tmp, &in[0], speed_R, frame_size);
+    else
+      vsb_process(st->vsb_R[ch], tmp, blank,  speed_R, frame_size);
+    vec_add1(out[4], tmp[0], frame_size);
+    vec_add1(out[5], tmp[1], frame_size);
+  }
 
   RESTORE_STACK;
   
@@ -146,7 +188,9 @@ void AudioProc(float* out[], float* in[])
 
 void AudioProc_init(void)
 {
+  int ch;
   AudioProcState* st;
+  char name[32];
   st = MEM_ALLOC(MEM_SDRAM, AudioProcState, 1, 4);
   audioproc_st = st;
 
@@ -157,8 +201,12 @@ void AudioProc_init(void)
 
   st->tcana_L = tcanalysis_init("tcana_L", FS, 1000.f);
   st->tcana_R = tcanalysis_init("tcana_R", FS, 1000.f);
-  st->vsb_L = vsb_init("vsb_L", (int)(FS * 60.f / 33.3f));
-  st->vsb_R = vsb_init("vsb_R", (int)(FS * 60.f / 33.3f));
+  for (ch=0; ch<NLAYER; ch++) {
+    sprintf(name, "vsb_L%d", ch);
+    st->vsb_L[ch] = vsb_init(subname, (int)(FS * 60.f / 33.3f));
+    sprintf(name, "vsb_R%d", ch);
+    st->vsb_R[ch] = vsb_init(subname, (int)(FS * 60.f / 33.3f));
+  }
   
   /* initialize mailbox */
   st->mbx = MBX_create(sizeof(cmd_desc_t), 1, NULL);
