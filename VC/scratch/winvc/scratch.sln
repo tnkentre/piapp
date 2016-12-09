@@ -1,0 +1,81 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.25420.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "scratch", "scratch.vcxproj", "{5AD7D6F9-B456-4264-B482-69932D04A78B}"
+	ProjectSection(ProjectDependencies) = postProject
+		{943FEB21-9E25-4DBA-9358-CB23381A957E} = {943FEB21-9E25-4DBA-9358-CB23381A957E}
+		{5F4FCA5C-09CC-4C87-998D-7D1FDC4387A6} = {5F4FCA5C-09CC-4C87-998D-7D1FDC4387A6}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "audiolib", "..\..\..\..\Revolabs\NextGen\AudioComponents\VC\fwk\audiolib\winvc\audiolib.vcxproj", "{943FEB21-9E25-4DBA-9358-CB23381A957E}"
+	ProjectSection(ProjectDependencies) = postProject
+		{5F4FCA5C-09CC-4C87-998D-7D1FDC4387A6} = {5F4FCA5C-09CC-4C87-998D-7D1FDC4387A6}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ExeSdk", "..\..\..\..\Revolabs\NextGen\AudioComponents\VC\fwk\ExeSdk\winvc\ExeSdk.vcxproj", "{734F78AD-BE81-4ABD-88B0-7AAD3B3B9E0E}"
+	ProjectSection(ProjectDependencies) = postProject
+		{943FEB21-9E25-4DBA-9358-CB23381A957E} = {943FEB21-9E25-4DBA-9358-CB23381A957E}
+		{5F4FCA5C-09CC-4C87-998D-7D1FDC4387A6} = {5F4FCA5C-09CC-4C87-998D-7D1FDC4387A6}
+		{99F5DE6C-0298-48E7-9AD7-BB8803DFBAE2} = {99F5DE6C-0298-48E7-9AD7-BB8803DFBAE2}
+		{5AD7D6F9-B456-4264-B482-69932D04A78B} = {5AD7D6F9-B456-4264-B482-69932D04A78B}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "vcwrap", "..\..\..\..\Revolabs\NextGen\AudioComponents\VC\fwk\vcwrap\winvc\vcwrap.vcxproj", "{5F4FCA5C-09CC-4C87-998D-7D1FDC4387A6}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "asioapi", "..\..\..\..\Revolabs\NextGen\AudioComponents\VC\fwk\asioapi\winvc\asioapi.vcxproj", "{99F5DE6C-0298-48E7-9AD7-BB8803DFBAE2}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug_staticlib|Win32 = Debug_staticlib|Win32
+		Debug|Win32 = Debug|Win32
+		Release_staticlib|Win32 = Release_staticlib|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{5AD7D6F9-B456-4264-B482-69932D04A78B}.Debug_staticlib|Win32.ActiveCfg = Debug_staticlib|Win32
+		{5AD7D6F9-B456-4264-B482-69932D04A78B}.Debug_staticlib|Win32.Build.0 = Debug_staticlib|Win32
+		{5AD7D6F9-B456-4264-B482-69932D04A78B}.Debug|Win32.ActiveCfg = Debug|Win32
+		{5AD7D6F9-B456-4264-B482-69932D04A78B}.Debug|Win32.Build.0 = Debug|Win32
+		{5AD7D6F9-B456-4264-B482-69932D04A78B}.Release_staticlib|Win32.ActiveCfg = Release_staticlib|Win32
+		{5AD7D6F9-B456-4264-B482-69932D04A78B}.Release_staticlib|Win32.Build.0 = Release_staticlib|Win32
+		{5AD7D6F9-B456-4264-B482-69932D04A78B}.Release|Win32.ActiveCfg = Release|Win32
+		{5AD7D6F9-B456-4264-B482-69932D04A78B}.Release|Win32.Build.0 = Release|Win32
+		{943FEB21-9E25-4DBA-9358-CB23381A957E}.Debug_staticlib|Win32.ActiveCfg = Debug_staticlib|Win32
+		{943FEB21-9E25-4DBA-9358-CB23381A957E}.Debug_staticlib|Win32.Build.0 = Debug_staticlib|Win32
+		{943FEB21-9E25-4DBA-9358-CB23381A957E}.Debug|Win32.ActiveCfg = Debug|Win32
+		{943FEB21-9E25-4DBA-9358-CB23381A957E}.Debug|Win32.Build.0 = Debug|Win32
+		{943FEB21-9E25-4DBA-9358-CB23381A957E}.Release_staticlib|Win32.ActiveCfg = Release_staticlib|Win32
+		{943FEB21-9E25-4DBA-9358-CB23381A957E}.Release_staticlib|Win32.Build.0 = Release_staticlib|Win32
+		{943FEB21-9E25-4DBA-9358-CB23381A957E}.Release|Win32.ActiveCfg = Release|Win32
+		{943FEB21-9E25-4DBA-9358-CB23381A957E}.Release|Win32.Build.0 = Release|Win32
+		{734F78AD-BE81-4ABD-88B0-7AAD3B3B9E0E}.Debug_staticlib|Win32.ActiveCfg = Debug_staticlib|Win32
+		{734F78AD-BE81-4ABD-88B0-7AAD3B3B9E0E}.Debug_staticlib|Win32.Build.0 = Debug_staticlib|Win32
+		{734F78AD-BE81-4ABD-88B0-7AAD3B3B9E0E}.Debug|Win32.ActiveCfg = Debug|Win32
+		{734F78AD-BE81-4ABD-88B0-7AAD3B3B9E0E}.Debug|Win32.Build.0 = Debug|Win32
+		{734F78AD-BE81-4ABD-88B0-7AAD3B3B9E0E}.Release_staticlib|Win32.ActiveCfg = Release_staticlib|Win32
+		{734F78AD-BE81-4ABD-88B0-7AAD3B3B9E0E}.Release_staticlib|Win32.Build.0 = Release_staticlib|Win32
+		{734F78AD-BE81-4ABD-88B0-7AAD3B3B9E0E}.Release|Win32.ActiveCfg = Release|Win32
+		{734F78AD-BE81-4ABD-88B0-7AAD3B3B9E0E}.Release|Win32.Build.0 = Release|Win32
+		{5F4FCA5C-09CC-4C87-998D-7D1FDC4387A6}.Debug_staticlib|Win32.ActiveCfg = Debug_staticlib|Win32
+		{5F4FCA5C-09CC-4C87-998D-7D1FDC4387A6}.Debug_staticlib|Win32.Build.0 = Debug_staticlib|Win32
+		{5F4FCA5C-09CC-4C87-998D-7D1FDC4387A6}.Debug|Win32.ActiveCfg = Debug|Win32
+		{5F4FCA5C-09CC-4C87-998D-7D1FDC4387A6}.Debug|Win32.Build.0 = Debug|Win32
+		{5F4FCA5C-09CC-4C87-998D-7D1FDC4387A6}.Release_staticlib|Win32.ActiveCfg = Release_staticlib|Win32
+		{5F4FCA5C-09CC-4C87-998D-7D1FDC4387A6}.Release_staticlib|Win32.Build.0 = Release_staticlib|Win32
+		{5F4FCA5C-09CC-4C87-998D-7D1FDC4387A6}.Release|Win32.ActiveCfg = Release|Win32
+		{5F4FCA5C-09CC-4C87-998D-7D1FDC4387A6}.Release|Win32.Build.0 = Release|Win32
+		{99F5DE6C-0298-48E7-9AD7-BB8803DFBAE2}.Debug_staticlib|Win32.ActiveCfg = Debug_staticlib|Win32
+		{99F5DE6C-0298-48E7-9AD7-BB8803DFBAE2}.Debug_staticlib|Win32.Build.0 = Debug_staticlib|Win32
+		{99F5DE6C-0298-48E7-9AD7-BB8803DFBAE2}.Debug|Win32.ActiveCfg = Debug|Win32
+		{99F5DE6C-0298-48E7-9AD7-BB8803DFBAE2}.Debug|Win32.Build.0 = Debug|Win32
+		{99F5DE6C-0298-48E7-9AD7-BB8803DFBAE2}.Release_staticlib|Win32.ActiveCfg = Release_staticlib|Win32
+		{99F5DE6C-0298-48E7-9AD7-BB8803DFBAE2}.Release_staticlib|Win32.Build.0 = Release_staticlib|Win32
+		{99F5DE6C-0298-48E7-9AD7-BB8803DFBAE2}.Release|Win32.ActiveCfg = Release|Win32
+		{99F5DE6C-0298-48E7-9AD7-BB8803DFBAE2}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
