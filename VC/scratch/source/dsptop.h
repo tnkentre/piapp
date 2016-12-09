@@ -56,9 +56,11 @@ typedef enum {
 #define DSP_NAME        scratch
 #define DSP_NAME_STR    "scratch"
 #define DSP_FS          48000
-#define DSP_FRAMESIZE   480
+#define DSP_FRAMESIZE   256
 #define DSP_CHNUM_IN    DSPCH_IN_NUM
 #define DSP_CHNUM_OUT   DSPCH_OUT_NUM
+//#define DSP_CHNUM_IN    2
+//#define DSP_CHNUM_OUT   2
 
 struct DSPTOPState_;
 typedef struct DSPTOPState_ DSPTOPState;

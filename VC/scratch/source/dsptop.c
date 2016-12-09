@@ -92,7 +92,7 @@ DSPTOPState* dsptop_init(void)
   st->tcana[0] = tcanalysis_init("TC0", st->fs, 1000);
   st->tcana[1] = tcanalysis_init("TC1", st->fs, 1000);
   st->vsb[0] = vsb_init("VSB0", (int)(st->fs * 60.f / 33.3f));
-  st->vsb[1] = vsb_init("VSB0", (int)(st->fs * 60.f / 33.3f));
+  st->vsb[1] = vsb_init("VSB1", (int)(st->fs * 60.f / 33.3f));
 
   return st;
 }
@@ -119,7 +119,7 @@ void dsptop_proc(DSPTOPState* st, float* out[], float* in[])
     CPX_ZERO(st->Y[i][st->nband]);
     FBsynthesis_process(st->syn[i], out[i], st->Y[i]);
   }
-#else
+#elif 1
   int frame_size = st->frame_size;
 
   VARDECLR(float, speed_L);
@@ -134,9 +134,20 @@ void dsptop_proc(DSPTOPState* st, float* out[], float* in[])
 
   /* Turntable on left side */
   vsb_process(st->vsb[0], &out[DSPCH_OUT_AUD0L], &in[DSPCH_IN_AUD0L], speed_L, frame_size);
-  vsb_process(st->vsb[1], &out[DSPCH_OUT_AUD1L], &in[DSPCH_IN_AUD1L], speed_L, frame_size);
-
+  vsb_process(st->vsb[1], &out[DSPCH_OUT_AUD1L], &in[DSPCH_IN_AUD1L], speed_R, frame_size);
+#if 0
+  COPY(out[DSPCH_OUT_AUD0L], in[DSPCH_IN_AUD0L], frame_size);
+  COPY(out[DSPCH_OUT_AUD0R], in[DSPCH_IN_AUD0R], frame_size);
+  COPY(out[DSPCH_OUT_AUD1L], in[DSPCH_IN_AUD1L], frame_size);
+  COPY(out[DSPCH_OUT_AUD1R], in[DSPCH_IN_AUD1R], frame_size);
+#endif
   RESTORE_STACK;
+#else
+  int frame_size = st->frame_size;
+  COPY(out[DSPCH_OUT_AUD0L], in[DSPCH_IN_AUD0L], frame_size);
+  COPY(out[DSPCH_OUT_AUD0R], in[DSPCH_IN_AUD0R], frame_size);
+  COPY(out[DSPCH_OUT_AUD1L], in[DSPCH_IN_AUD1L], frame_size);
+  COPY(out[DSPCH_OUT_AUD1R], in[DSPCH_IN_AUD1R], frame_size);
 #endif
 }
 
