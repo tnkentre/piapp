@@ -19,12 +19,14 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\..\audiolib\FBvsb.c" />
     <ClCompile Include="..\..\..\audiolib\tcanalysis.c" />
     <ClCompile Include="..\..\..\audiolib\vsb.c" />
     <ClCompile Include="..\source\dspapi.cpp" />
     <ClCompile Include="..\source\dsptop.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\..\audiolib\FBvsb.h" />
     <ClInclude Include="..\..\..\audiolib\tcanalysis.h" />
     <ClInclude Include="..\..\..\audiolib\vsb.h" />
     <ClInclude Include="..\source\dsptop.h" />
