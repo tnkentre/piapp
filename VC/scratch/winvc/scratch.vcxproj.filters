@@ -13,6 +13,9 @@
     <ClCompile Include="..\..\..\audiolib\vsb.c">
       <Filter>Source</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\audiolib\FBvsb.c">
+      <Filter>Source</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="API">
@@ -30,6 +33,9 @@
       <Filter>Source</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\audiolib\vsb.h">
+      <Filter>Source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\audiolib\FBvsb.h">
       <Filter>Source</Filter>
     </ClInclude>
   </ItemGroup>

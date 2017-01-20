@@ -33,66 +33,42 @@
 #include "vectors.h"
 #include "vectors_cplx.h"
 #include "cli.h"
+#include "CircularBuf.h"
 #include "FB.h"
 #include "FB_filters.h"
 #include "RevoFFT.h"
 #include "FBvsb.h"
 
-/************************************
- *    Implementation of SimpleCB    *
- ************************************/
-typedef struct {
-  int len;
-  int idx;
-  float * restrict buf;
-} SimpleCB;
 
-static SimpleCB* simplecb_init(int len)
-{
-  SimpleCB* st;
-  st = MEM_ALLOC(MEM_SDRAM, SimpleCB, 1, 4);
-  st->len = len;
-  st->idx = 0;
-  st->buf = MEM_ALLOC(MEM_SDRAM, float, len, 8);
-  return st;
-}
 
-static void simplecb_write(SimpleCB* restrict st, const float * buf, int len)
+/*****************
+ *    Tool       *
+ *****************/
+static vec_angle(float * restrict angle, const rv_complex * X, int nband)
 {
-  int writelen;
-  int srcidx = 0;
-  while (len) {
-    writelen = MIN(st->len - st->idx, len);
-    COPY(&st->buf[st->idx], &buf[srcidx], writelen);
-    len     -= writelen;
-    srcidx  += writelen;
-    st->idx += writelen;
-    if (st->idx >= st->len) {
-      st->idx -= st->len;
-    }
-  }
-}
-
-static void simplecb_read(SimpleCB* restrict st, float * restrict buf, int len, int delay)
-{
-  int readlen;
-  int srcidx = ((1 + (len+delay) / st->len) * st->len + st->idx - (len+delay)) % st->len;
-  int dstidx = 0;
-  while (len) {
-    readlen = MIN(st->len - srcidx, len);
-    COPY(&buf[dstidx], &st->buf[srcidx], readlen);
-    len     -= readlen;
-    dstidx  += readlen;
-    srcidx  += readlen;
-    if (srcidx >= st->len) {
-      srcidx -= st->len;
-    }
+  int i;
+  for (i=0; i<nband; i++) {
+    angle[i] = (float)ATAN2(X[i].i, X[i].r);
   }
 }
 
 /************************************
  *    Implementation of FBVSB       *
  ************************************/
+typedef struct {
+  rv_complex * restrict X;
+  float      * restrict lev;
+  float      * restrict ph;
+} HISTORY;
+
+typedef struct {
+  HISTORY          * hist;
+  SimpleCBState    * tdbuf;
+  float            * levn;
+  float            * phn;
+  FBsynthesisState * syn;  
+} CH;
+
 struct FBVSB_State_ {
   AC_HEADER(0,0);  
   /* configuration and history */
@@ -100,14 +76,12 @@ struct FBVSB_State_ {
   int    frame_size;
   int    fft_size;
   int    fbfilter_size;
+  int    nch;
   int    nband;
-  int    nfbbuf;
-
-  rv_complex ** fbbuf[2];
-  rv_complex ** phbuf[2];
-  SimpleCB   *  tdbuf[2];
-  float      *  ha;
-  float      *  hs;
+  int    nhist;
+  CH     * ch;
+  float  * ha;
+  
   int    ipos;
   float  fpos;
 
@@ -124,7 +98,7 @@ static const RegDef_t rd[] = {
   AC_REGDEF(feedbackgain, CLI_ACFPTM,   FBVSB_State, "Feedback gain"),
 };
 
-FBVSB_State *FBvsb_init(const char * name, int fs, int frame_size, float length_sec)
+FBVSB_State *FBvsb_init(const char * name, int nch, int fs, int frame_size, float length_sec)
 {
   int ch, i;
   FBVSB_State* st;
@@ -133,6 +107,8 @@ FBVSB_State *FBvsb_init(const char * name, int fs, int frame_size, float length_
   int fft_size      = 2 * frame_size;
   int fbfilter_size = 2 * fft_size;
   int nband         = fft_size / 2;
+
+  fbinfo = FB_filters_getinfo(frame_size, fft_size, fbfilter_size);
   
   st = MEM_ALLOC(MEM_SDRAM, FBVSB_State, 1, 8);
 
@@ -143,23 +119,26 @@ FBVSB_State *FBvsb_init(const char * name, int fs, int frame_size, float length_
   st->frame_size    = frame_size;
   st->fft_size      = fft_size;
   st->fbfilter_size = fbfilter_size;
+  st->nch           = nch;
   st->nband         = nband;
-  st->nfbbuf        = (int)(length_sec * fs / frame_size);
-  for (ch = 0; ch < 2; ch++) {
-    st->fbbuf[ch] = MEM_ALLOC(MEM_SDRAM, rv_complex*, st->nfbbuf, 8);
-    st->phbuf[ch] = MEM_ALLOC(MEM_SDRAM, rv_complex*, st->nfbbuf, 8);
-    for (i = 0; i < st->nfbbuf; i++) {
-      st->fbbuf[ch][i] = MEM_ALLOC(MEM_SDRAM, rv_complex, nband+1, 8);
-      st->phbuf[ch][i] = MEM_ALLOC(MEM_SDRAM, rv_complex, nband+1, 8);
-    }
-    st->tdbuf[ch] = simplecb_init(fbfilter_size + frame_size);
-  }
+  st->nhist         = (int)(length_sec * fs / frame_size);
 
-  fbinfo = FB_filters_getinfo(frame_size, fft_size, fbfilter_size);
   st->ha = MEM_ALLOC(MEM_SDRAM, float, fbfilter_size, 8);
-  st->hs = MEM_ALLOC(MEM_SDRAM, float, fbfilter_size, 8);
   COPY(st->ha, fbinfo->filter_h, fbfilter_size);
-  COPY(st->hs, fbinfo->filter_g, fbfilter_size);
+
+  st->ch = MEM_ALLOC(MEM_SDRAM, CH, nch, 4);
+  for (ch = 0; ch < nch; ch++) {
+    st->ch[ch].hist = MEM_ALLOC(MEM_SDRAM, HISTORY, st->nhist, 8);
+    for (i = 0; i < st->nhist; i++) {
+      st->ch[ch].hist[i].X   = MEM_ALLOC(MEM_SDRAM, rv_complex, nband+1, 8);
+      st->ch[ch].hist[i].lev = MEM_ALLOC(MEM_SDRAM, float,      nband,   8);
+      st->ch[ch].hist[i].ph  = MEM_ALLOC(MEM_SDRAM, float,      nband,   8);
+    }
+    st->ch[ch].tdbuf = simplecb_init(fbfilter_size + frame_size);
+    st->ch[ch].levn  = MEM_ALLOC(MEM_SDRAM, float, nband,   8);
+    st->ch[ch].phn   = MEM_ALLOC(MEM_SDRAM, float, nband,   8);
+    st->ch[ch].syn   = FBsynthesis_init(fbinfo->fftsize, fbinfo->decimation, fbinfo->lg, fbinfo->filter_g, 1);
+  }
 
   st->fft           = RevoFFT_initr(fft_size);
   
@@ -177,9 +156,12 @@ static void proc_put(FBVSB_State * restrict st, float* src[], float* speed)
   int frame_size    = st->frame_size;
   int fbfilter_size = st->fbfilter_size;
   int fft_size      = st->fft_size;
+  int nch           = st->nch;
   int nband         = st->nband;
+  int nhist         = st->nhist;
   int cur           = (int)(st->fpos / frame_size);
   int putlen        = 0;
+  CH * chst;
 
   VARDECLR(float,      fftbuf);
   VARDECLR(rv_complex, fdtemp0);
@@ -195,127 +177,105 @@ static void proc_put(FBVSB_State * restrict st, float* src[], float* speed)
   
   for (i=0; i<frame_size; i++) {
     st->fpos += speed[i];
+    while(st->fpos >= (float)nhist * frame_size)
+      st->fpos -= (float)nhist * frame_size;
+    while(st->fpos <  0 )
+      st->fpos += (float)nhist * frame_size;
     putlen++;
     if ((int)(st->fpos / frame_size) != cur) {
-      for (ch=0; ch<2; ch++) {
-	simplecb_write(st->tdbuf[ch], &src[ch][i-putlen+1], putlen);
+      for (ch=0; ch<nch; ch++) {
+	chst = &st->ch[ch];
+	simplecb_write(chst->tdbuf, &src[ch][i-putlen+1], putlen);
+	
 	// FB analysis
-	simplecb_read(st->tdbuf[ch], fftbuf, fbfilter_size, 0);
+	simplecb_read(chst->tdbuf, fftbuf, fbfilter_size, 0);
 	vec_mul1(fftbuf, st->ha, fbfilter_size);
 	for (m=0; m<fbfilter_size/fft_size-1; m++) {
 	  vec_add1(fftbuf, &fftbuf[(m+1)*fft_size], fft_size);
 	}
-	RevoFFT_fftr(st->fft, (float*)st->fbbuf[ch][cur], fftbuf);
+	RevoFFT_fftr(st->fft, (float*)chst->hist[cur].X, fftbuf);
+	vec_spectral_power(sctemp0, chst->hist[cur].X, nband);
+	vec_sqrt(chst->hist[cur].lev, sctemp0, nband);
+	
 	// phase analysis
-	simplecb_read(st->tdbuf[ch], fftbuf, fbfilter_size, frame_size);
+	simplecb_read(chst->tdbuf, fftbuf, fbfilter_size, frame_size);
 	vec_mul1(fftbuf, st->ha, fbfilter_size);
 	for (m=0; m<fbfilter_size/fft_size-1; m++) {
 	  vec_add1(fftbuf, &fftbuf[(m+1)*fft_size], fft_size);
 	}
-	RevoFFT_fftr(st->fft, (float*)fdtemp0, fftbuf);
-	vec_cplx_mul_conj(fdtemp1, fdtemp0, st->fbbuf[ch][cur], nband);
-	vec_spectral_power(sctemp0, fdtemp1, nband);
-	vec_sqrt(sctemp1, sctemp0, nband);
-	vec_add1s(sctemp1, FLT_MIN, nband);
-	vec_inv(sctemp0, sctemp1, nband);
-	vec_cplx_mulr(st->phbuf[ch][cur], fdtemp1, sctemp0, nband);
+	RevoFFT_fftr(st->fft, (float*)fdtemp0, fftbuf);	
+	vec_cplx_mul_conj(fdtemp1, fdtemp0, chst->hist[cur].X, nband);
+	vec_angle(chst->hist[cur].ph, fdtemp1, nband);
 	// !!todo!! adjust fractional delay
       }
       putlen = 0;
       cur = (int)(st->fpos / frame_size);
-      if (cur >= st->nfbbuf) {
-	st->fpos -= st->nfbbuf * frame_size;
-	cur = (int)(st->fpos / frame_size);
-      }
-      if (cur < 0) {
-	st->fpos += st->nfbbuf * frame_size;
-	cur = (int)(st->fpos / frame_size);
-      }
     }
   }
-  for (ch=0; ch<2; ch++) {
-    simplecb_write(st->tdbuf[ch], &src[ch][i-putlen+1], putlen);
+  for (ch=0; ch<nch; ch++) {
+    simplecb_write(st->ch[ch].tdbuf, &src[ch][i-putlen+1], putlen);
   }
 
   RESTORE_STACK;
 }
 
+static void proc_get(FBVSB_State * restrict st, float* dst[], float* speed)
+{
+  int i, ch;
+  float pi_2        = 2.f * (float)M_PI;
+  float rc_pi_2     = RECIP(pi_2);
+  int frame_size    = st->frame_size;
+  int nch           = st->nch;
+  int nband         = st->nband;
+  int nhist         = st->nhist;
+  float fpos        = st->fpos;
+  int   cur, cur1;
+  float bal, bal1;
+  CH * chst;
+
+  VARDECLR(float,      lev);
+  VARDECLR(float,      ph);
+  VARDECLR(rv_complex, X);
+  SAVE_STACK;
+  ALLOC(lev, nband,   float);
+  ALLOC(ph,  nband,   float);
+  ALLOC(X,   nband+1, rv_complex);
+  
+  fpos += vec_sum(speed, st->frame_size);
+  while (fpos >= (float)nhist * frame_size)
+    fpos -= nhist * frame_size;
+  while (fpos < 0.f)
+    fpos += nhist * frame_size;
+  cur = (int)(fpos / frame_size);
+  cur1 = cur < nhist-1 ? cur + 1 : 0;
+  bal1 = fpos - cur;
+  bal  = 1.f - bal1;
+
+  for (ch=0; ch<nch; ch++) {
+    chst = &st->ch[ch];
+    
+    vec_wadd(lev, bal, chst->hist[cur].lev, bal1, chst->hist[cur1].lev, nband);
+    vec_wadd(ph,  bal, chst->hist[cur].ph,  bal1, chst->hist[cur1].ph,  nband);
+
+    COPY(chst->levn, lev, nband);
+    for (i=0; i<nband; i++) {
+      chst->phn[i] += ph[i];
+      chst->phn[i] -= pi_2 * (int)(chst->phn[i] * rc_pi_2 + .5f);
+    }
+  
+    /* generate new level spectrum */
+    for (i=0; i<nband; i++) {
+      X[i].r = chst->levn[i] * (float)COS(chst->phn[i]);
+      X[i].i = chst->levn[i] * (float)SIN(chst->phn[i]);
+    }
+    CPX_ZERO(X[nband]);
+    FBsynthesis_process(chst->syn, dst[ch], X);
+  }
+
+  RESTORE_STACK;
+}
+
+
 void FBvsb_process(FBVSB_State * restrict st, float* dst[], float* src[], float* speed, int len)
 {
-#if 0
-  int   i, j;
-  int   ipos_next;
-  float fpos_next;
-  int   ipos_nexttmp;
-  int   ipos_curtmp;
-  float norm;
-  float out[2];
-  
-  for (i=0; i<len; i++) {
-    // compute buffer's position
-    ipos_next = st->ipos;
-    fpos_next = st->fpos + speed[i];
-    ipos_next += (int)fpos_next;
-    fpos_next -= (float)((int)fpos_next);
-    if (fpos_next < 0.0f) {
-      ipos_next -= 1;
-      fpos_next += 1.0f;
-    }
-    if (ipos_next <  0)      ipos_next += st->size;
-    if (ipos_next >= st->size) ipos_next -= st->size;
-
-    // write rec data when buffer is free
-    if (speed[i] == 0.0f) {
-      st->writestock[0] = 0.0f;
-      st->writestock[1] = 0.0f;
-    }
-    if (ipos_next != st->ipos) {
-      st->buf[0][st->idxstock] = st->feedbackgain * st->buf[0][st->idxstock] + st->writestock[0];
-      st->buf[1][st->idxstock] = st->feedbackgain * st->buf[1][st->idxstock] + st->writestock[1];
-    }
-
-    // get recorded data
-    out[0] = src[0][i] + st->loopgain * ((1.0f - fpos_next) * st->buf[0][ipos_next] + fpos_next * st->buf[0][ipos_next+1<st->size?ipos_next+1:0]);
-    out[1] = src[1][i] + st->loopgain * ((1.0f - fpos_next) * st->buf[1][ipos_next] + fpos_next * st->buf[1][ipos_next+1<st->size?ipos_next+1:0]);
-
-    // write stock
-    if (st->ipos != ipos_next) {
-      if (speed[i] > 0.0f) {
-	ipos_nexttmp = ipos_next > st->ipos ? ipos_next : ipos_next + st->size;
-	norm = 1.0f / (ipos_nexttmp - st->ipos + fpos_next - st->fpos);
-	for (j=st->ipos+1; j<ipos_nexttmp; j++) {
-	  st->buf[0][j<st->size?j:j-st->size] *= st->feedbackgain;
-	  st->buf[1][j<st->size?j:j-st->size] *= st->feedbackgain;
-	  st->buf[0][j<st->size?j:j-st->size] += norm * ((j - st->ipos - st->fpos) * src[0][i] + (ipos_nexttmp - j + fpos_next) * st->rec[0]);
-	  st->buf[1][j<st->size?j:j-st->size] += norm * ((j - st->ipos - st->fpos) * src[1][i] + (ipos_nexttmp - j + fpos_next) * st->rec[1]);
-	}
-	st->writestock[0] = norm * ((ipos_nexttmp - st->ipos - st->fpos) * src[0][i] + fpos_next * st->rec[0]);
-	st->writestock[1] = norm * ((ipos_nexttmp - st->ipos - st->fpos) * src[1][i] + fpos_next * st->rec[1]);
-	st->idxstock = ipos_nexttmp < st->size ? ipos_nexttmp : ipos_nexttmp - st->size;
-      }
-      else if (speed[i] < 0.0f) {
-	ipos_curtmp = ipos_next < st->ipos ? st->ipos : st->ipos + st->size;
-	norm = 1.0f / (ipos_curtmp - ipos_next + st->fpos - fpos_next);
-	for (j=ipos_curtmp; j>ipos_next+1; j--) {
-	  st->buf[0][j<st->size?j:j-st->size] *= st->feedbackgain;
-	  st->buf[1][j<st->size?j:j-st->size] *= st->feedbackgain;
-	  st->buf[0][j<st->size?j:j-st->size] += norm * ((ipos_curtmp - j + st->fpos) * src[0][i] + (j - ipos_next - fpos_next) * st->rec[0]);
-	  st->buf[1][j<st->size?j:j-st->size] += norm * ((ipos_curtmp - j + st->fpos) * src[1][i] + (j - ipos_next - fpos_next) * st->rec[1]);
-	}
-	st->writestock[0] = norm * ((ipos_curtmp - ipos_next - 1 + st->fpos) * src[0][i] + (1.0f - fpos_next) * st->rec[0]);
-	st->writestock[1] = norm * ((ipos_curtmp - ipos_next - 1 + st->fpos) * src[1][i] + (1.0f - fpos_next) * st->rec[1]);
-	st->idxstock = ipos_next+1 < st->size ? ipos_next+1 : ipos_next+1-st->size;
-      }
-    }
-    st->rec[0] = src[0][i];
-    st->rec[1] = src[1][i];
-
-    // prepare for next
-    st->ipos = ipos_next;
-    st->fpos = fpos_next;
-
-    dst[0][i] = out[0];
-    dst[1][i] = out[1];
-  }
-#endif
 }

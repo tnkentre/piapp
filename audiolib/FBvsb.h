@@ -43,11 +43,12 @@ typedef struct FBVSB_State_ FBVSB_State;
 /** @fn FBVSB_State *FBvsb_init(const char * name, float fs, int frame_size, int nband)
  * @brief This function creates a FBVSB_State component
  * @param name Name of the component
+ * @param nch Number of channels
  * @param fs Sampling frequency
  * @param freq_tc Reference frequency of TC signal
  * @return Initialized state of the FBVSB
  */
-FBVSB_State *FBvsb_init(const char * name, int fs, int frame_size, float length_sec);
+FBVSB_State *FBvsb_init(const char * name, int nch, int fs, int frame_size, float length_sec);
 
 /** @fn void FBvsb_process(FBVSB_State * restrict st, const float * E2, int nband)
  * @brief This function execute FBvsb in frequency domain
