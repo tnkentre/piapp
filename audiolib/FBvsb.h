@@ -58,7 +58,7 @@ FBVSB_State *FBvsb_init(const char * name, int nch, int fs, int frame_size, floa
  * @param tcR   input Rch tc signal buffer's pointer array
  * @param len   Length of the buffer
  */
-void FBvsb_process(FBVSB_State * restrict st, float* dst[], float* src[], float* speed, int len);
+void FBvsb_process(FBVSB_State * restrict st, float* dst[], float* src[], float* speed);
 
 #ifdef __cplusplus
 } 

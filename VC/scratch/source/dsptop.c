@@ -35,6 +35,7 @@
 #include "FB_filters.h"
 #include "tcanalysis.h"
 #include "vsb.h"
+#include "FBvsb.h"
 #include "dsptop.h"
 
 //----------------------------------------------------------
@@ -45,6 +46,7 @@ struct DSPTOPState_ {
   int frame_size;
   int nband;
   float gain;
+  float debugspeed;
   rv_complex * X[DSP_CHNUM_IN];
   rv_complex * Y[DSP_CHNUM_OUT];
   FBanalysisState  * ana[DSP_CHNUM_IN];
@@ -52,10 +54,12 @@ struct DSPTOPState_ {
 
   TCANALYSIS_State * tcana[2];
   VSB_State        * vsb[2];
+  FBVSB_State      * fbvsb[2];
 } ;
 
 static const RegDef_t rd[] = {
-  AC_REGDEF(gain, CLI_ACFPTM, DSPTOPState, "output gain"),
+  AC_REGDEF(gain,       CLI_ACFPTM, DSPTOPState, "output gain"),
+  AC_REGDEF(debugspeed, CLI_ACFPTM, DSPTOPState, "speed to debug"),
 };
 
 //----------------------------------------------------------
@@ -88,11 +92,14 @@ DSPTOPState* dsptop_init(void)
   }
 
   st->gain = 1.f;
+  st->debugspeed = 1.f;
 
   st->tcana[0] = tcanalysis_init("TC0", st->fs, 1000);
   st->tcana[1] = tcanalysis_init("TC1", st->fs, 1000);
   st->vsb[0] = vsb_init("VSB0", (int)(st->fs * 60.f / 33.3f));
   st->vsb[1] = vsb_init("VSB1", (int)(st->fs * 60.f / 33.3f));
+  st->fbvsb[0] = FBvsb_init("FBVSB0", 2, st->fs, st->frame_size, 60.f / 33.3f);
+  st->fbvsb[1] = FBvsb_init("FBVSB1", 2, st->fs, st->frame_size, 60.f / 33.3f);
 
   return st;
 }
@@ -102,24 +109,6 @@ DSPTOPState* dsptop_init(void)
 //----------------------------------------------------------
 void dsptop_proc(DSPTOPState* st, float* out[], float* in[])
 {
-#if 0
-  int i;
-  for (i = 0; i < DSP_CHNUM_IN; i++) {
-    FBanalysis_process(st->ana[i], st->X[i], in[i]);
-  }
-
-  for (i = 0; i < MIN(DSP_CHNUM_IN, DSP_CHNUM_OUT); i++) {
-    vec_cplx_muls(st->Y[i], st->X[i], st->gain, st->nband);
-  }
-  for (; i < DSP_CHNUM_OUT; i++) {
-    vec_set((float*)st->Y[i], 0.0f, 2 * st->nband);
-  }
-
-  for (i = 0; i < DSP_CHNUM_OUT; i++) {
-    CPX_ZERO(st->Y[i][st->nband]);
-    FBsynthesis_process(st->syn[i], out[i], st->Y[i]);
-  }
-#elif 1
   int frame_size = st->frame_size;
 
   VARDECLR(float, speed_L);
@@ -135,19 +124,14 @@ void dsptop_proc(DSPTOPState* st, float* out[], float* in[])
   /* Turntable on left side */
   vsb_process(st->vsb[0], &out[DSPCH_OUT_AUD0L], &in[DSPCH_IN_AUD0L], speed_L, frame_size);
   vsb_process(st->vsb[1], &out[DSPCH_OUT_AUD1L], &in[DSPCH_IN_AUD1L], speed_R, frame_size);
-#if 0
-  COPY(out[DSPCH_OUT_AUD0L], in[DSPCH_IN_AUD0L], frame_size);
-  COPY(out[DSPCH_OUT_AUD0R], in[DSPCH_IN_AUD0R], frame_size);
-  COPY(out[DSPCH_OUT_AUD1L], in[DSPCH_IN_AUD1L], frame_size);
-  COPY(out[DSPCH_OUT_AUD1R], in[DSPCH_IN_AUD1R], frame_size);
+
+#if 1
+  vec_set(speed_L, st->debugspeed, frame_size);
+  vec_set(speed_R, st->debugspeed, frame_size);
+  FBvsb_process(st->fbvsb[0], &out[DSPCH_OUT_AUD0L], &in[DSPCH_IN_AUD0L], speed_L);
+  FBvsb_process(st->fbvsb[1], &out[DSPCH_OUT_AUD1L], &in[DSPCH_IN_AUD1L], speed_R);
 #endif
+
   RESTORE_STACK;
-#else
-  int frame_size = st->frame_size;
-  COPY(out[DSPCH_OUT_AUD0L], in[DSPCH_IN_AUD0L], frame_size);
-  COPY(out[DSPCH_OUT_AUD0R], in[DSPCH_IN_AUD0R], frame_size);
-  COPY(out[DSPCH_OUT_AUD1L], in[DSPCH_IN_AUD1L], frame_size);
-  COPY(out[DSPCH_OUT_AUD1R], in[DSPCH_IN_AUD1R], frame_size);
-#endif
 }
 

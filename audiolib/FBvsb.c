@@ -57,6 +57,7 @@ static vec_angle(float * restrict angle, const rv_complex * X, int nband)
  ************************************/
 typedef struct {
   rv_complex * restrict X;
+  rv_complex * restrict X1;
   float      * restrict lev;
   float      * restrict ph;
 } HISTORY;
@@ -82,7 +83,6 @@ struct FBVSB_State_ {
   CH     * ch;
   float  * ha;
   
-  int    ipos;
   float  fpos;
 
   /* Audio Components */
@@ -131,6 +131,7 @@ FBVSB_State *FBvsb_init(const char * name, int nch, int fs, int frame_size, floa
     st->ch[ch].hist = MEM_ALLOC(MEM_SDRAM, HISTORY, st->nhist, 8);
     for (i = 0; i < st->nhist; i++) {
       st->ch[ch].hist[i].X   = MEM_ALLOC(MEM_SDRAM, rv_complex, nband+1, 8);
+      st->ch[ch].hist[i].X1  = MEM_ALLOC(MEM_SDRAM, rv_complex, nband+1, 8);
       st->ch[ch].hist[i].lev = MEM_ALLOC(MEM_SDRAM, float,      nband,   8);
       st->ch[ch].hist[i].ph  = MEM_ALLOC(MEM_SDRAM, float,      nband,   8);
     }
@@ -142,7 +143,6 @@ FBVSB_State *FBvsb_init(const char * name, int nch, int fs, int frame_size, floa
 
   st->fft           = RevoFFT_initr(fft_size);
   
-  st->ipos          = 0;
   st->fpos          = 0.0f;
   st->loopgain      = 1.0f;
   st->feedbackgain  = 1.0f;
@@ -163,17 +163,16 @@ static void proc_put(FBVSB_State * restrict st, float* src[], float* speed)
   int putlen        = 0;
   CH * chst;
 
+  float maxval;
+  float minval;
+
   VARDECLR(float,      fftbuf);
-  VARDECLR(rv_complex, fdtemp0);
-  VARDECLR(rv_complex, fdtemp1);
-  VARDECLR(float,      sctemp0);
-  VARDECLR(float,      sctemp1);
+  VARDECLR(rv_complex, fdtemp);
+  VARDECLR(float,      sctemp);
   SAVE_STACK;
-  ALLOC(fftbuf,  fbfilter_size, float);
-  ALLOC(fdtemp0, nband+1,  rv_complex);
-  ALLOC(fdtemp1, nband+1,  rv_complex);
-  ALLOC(sctemp0, nband+1,  float);
-  ALLOC(sctemp1, nband+1,  float);
+  ALLOC(fftbuf, fbfilter_size, float);
+  ALLOC(fdtemp, nband+1,       rv_complex);
+  ALLOC(sctemp, nband+1,       float);
   
   for (i=0; i<frame_size; i++) {
     st->fpos += speed[i];
@@ -193,19 +192,24 @@ static void proc_put(FBVSB_State * restrict st, float* src[], float* speed)
 	for (m=0; m<fbfilter_size/fft_size-1; m++) {
 	  vec_add1(fftbuf, &fftbuf[(m+1)*fft_size], fft_size);
 	}
-	RevoFFT_fftr(st->fft, (float*)chst->hist[cur].X, fftbuf);
-	vec_spectral_power(sctemp0, chst->hist[cur].X, nband);
-	vec_sqrt(chst->hist[cur].lev, sctemp0, nband);
-	
-	// phase analysis
+    RevoFFT_fftr(st->fft, (float*)fdtemp, fftbuf);
+	vec_cplx_wadd1(chst->hist[cur].X, st->feedbackgain, 1.f, fdtemp, nband);
+
 	simplecb_read(chst->tdbuf, fftbuf, fbfilter_size, frame_size);
 	vec_mul1(fftbuf, st->ha, fbfilter_size);
 	for (m=0; m<fbfilter_size/fft_size-1; m++) {
 	  vec_add1(fftbuf, &fftbuf[(m+1)*fft_size], fft_size);
 	}
-	RevoFFT_fftr(st->fft, (float*)fdtemp0, fftbuf);	
-	vec_cplx_mul_conj(fdtemp1, fdtemp0, chst->hist[cur].X, nband);
-	vec_angle(chst->hist[cur].ph, fdtemp1, nband);
+	RevoFFT_fftr(st->fft, (float*)fdtemp, fftbuf);
+	vec_cplx_wadd1(chst->hist[cur].X1, st->feedbackgain, 1.f, fdtemp, nband);
+
+	// level
+	vec_spectral_power(sctemp, chst->hist[cur].X, nband);
+	vec_sqrt(chst->hist[cur].lev, sctemp, nband);
+	
+	// phase analysis
+	vec_cplx_mul_conj(fdtemp, chst->hist[cur].X1, chst->hist[cur].X, nband);
+	vec_angle(chst->hist[cur].ph, fdtemp, nband);
 	// !!todo!! adjust fractional delay
       }
       putlen = 0;
@@ -213,7 +217,7 @@ static void proc_put(FBVSB_State * restrict st, float* src[], float* speed)
     }
   }
   for (ch=0; ch<nch; ch++) {
-    simplecb_write(st->ch[ch].tdbuf, &src[ch][i-putlen+1], putlen);
+    simplecb_write(st->ch[ch].tdbuf, &src[ch][frame_size-putlen], putlen);
   }
 
   RESTORE_STACK;
@@ -248,7 +252,7 @@ static void proc_get(FBVSB_State * restrict st, float* dst[], float* speed)
     fpos += nhist * frame_size;
   cur = (int)(fpos / frame_size);
   cur1 = cur < nhist-1 ? cur + 1 : 0;
-  bal1 = fpos - cur;
+  bal1 = (fpos - cur * frame_size) * RECIP((float)frame_size);
   bal  = 1.f - bal1;
 
   for (ch=0; ch<nch; ch++) {
@@ -276,6 +280,16 @@ static void proc_get(FBVSB_State * restrict st, float* dst[], float* speed)
 }
 
 
-void FBvsb_process(FBVSB_State * restrict st, float* dst[], float* src[], float* speed, int len)
+void FBvsb_process(FBVSB_State * restrict st, float* dst[], float* src[], float* speed)
 {
+  int ch;
+  int nch        = st->nch;
+  int frame_size = st->frame_size;
+  
+  proc_get(st, dst, speed);
+  for (ch=0; ch<nch; ch++) {
+    vec_wadd1(dst[ch], st->loopgain, 1.f, src[ch], frame_size);
+  }
+
+  proc_put(st, src, speed);
 }
