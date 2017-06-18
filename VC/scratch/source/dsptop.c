@@ -25,6 +25,8 @@
  * @author Ryo Tanaka
  */
 
+#include "vcwrap.h"
+
 #include "RevoRT.h"
 #include "Registers.h"
 #include "FixedHeap.h"

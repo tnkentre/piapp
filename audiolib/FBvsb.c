@@ -24,7 +24,9 @@
  * @version $LastChangedRevision:$
  * @author Ryo Tanaka
  */
-
+#ifdef WIN32
+#include "vcwrap.h"
+#endif
 #include <float.h>
 #include "RevoRT.h"
 #include "RevoRT_complex.h"

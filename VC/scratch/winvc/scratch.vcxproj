@@ -68,19 +68,15 @@
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="PropertySheet.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug_staticlib|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="PropertySheet.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="PropertySheet.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release_staticlib|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="PropertySheet.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -107,8 +103,9 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_CRT_SECURE_NO_DEPRECATE=1;_USRDLL;DSPDLL_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>../../../audiolib;$(AC_SourcePath)/VC/fwk/include;$(AC_SourcePath)/VC/fwk/vcwrap/source;$(AC_SourcePath)/audiolib;$(AC_SourcePath)/audiolib/DSP/c674x;$(AC_SourcePath)/audiolib/DSP/c674x/dsplib_v12/src</AdditionalIncludeDirectories>
-      <ForcedIncludeFiles>vcwrap.h</ForcedIncludeFiles>
+      <AdditionalIncludeDirectories>../../../audiolib;../../../../Revolabs/NextGen/AudioComponents/VC/fwk/include;../../../../Revolabs/NextGen/AudioComponents/VC/fwk/vcwrap/source;../../../../Revolabs/NextGen/AudioComponents/audiolib;../../../../Revolabs/NextGen/AudioComponents/audiolib/DSP/c674x;../../../../Revolabs/NextGen/AudioComponents/audiolib/DSP/c674x/dsplib_v12/src;../../../../Revolabs/NextGen/AudioComponents/AudioModules;../../../../Revolabs/NextGen/AudioComponents/Codecs</AdditionalIncludeDirectories>
+      <ForcedIncludeFiles>
+      </ForcedIncludeFiles>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -118,7 +115,7 @@
       <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
     </Link>
     <PreBuildEvent>
-      <Command>$(AC_SourcePath)/VC/fwk/tool/dspdefgen $(TargetName)</Command>
+      <Command>../../../../Revolabs/NextGen/AudioComponents/VC/fwk/tool/dspdefgen $(TargetName)</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug_staticlib|Win32'">
@@ -129,8 +126,9 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_CRT_SECURE_NO_DEPRECATE=1;_USRDLL;DSPDLL_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>../../../audiolib;$(AC_SourcePath)/VC/fwk/include;$(AC_SourcePath)/VC/fwk/vcwrap/source;$(AC_SourcePath)/audiolib;$(AC_SourcePath)/audiolib/DSP/c674x;$(AC_SourcePath)/audiolib/DSP/c674x/dsplib_v12/src</AdditionalIncludeDirectories>
-      <ForcedIncludeFiles>vcwrap.h</ForcedIncludeFiles>
+      <AdditionalIncludeDirectories>../../../audiolib;../../../../Revolabs/NextGen/AudioComponents/VC/fwk/include;../../../../Revolabs/NextGen/AudioComponents/VC/fwk/vcwrap/source;../../../../Revolabs/NextGen/AudioComponents/audiolib;../../../../Revolabs/NextGen/AudioComponents/audiolib/DSP/c674x;../../../../Revolabs/NextGen/AudioComponents/audiolib/DSP/c674x/dsplib_v12/src;../../../../Revolabs/NextGen/AudioComponents/AudioModules;../../../../Revolabs/NextGen/AudioComponents/Codecs</AdditionalIncludeDirectories>
+      <ForcedIncludeFiles>
+      </ForcedIncludeFiles>
       <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='Debug_lib|Win32'">MultiThreadedDebug</RuntimeLibrary>
       <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='Debug_lib|Win32'">ProgramDatabase</DebugInformationFormat>
       <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='Debug_lib|Win32'">MultiThreadedDebug</RuntimeLibrary>
@@ -144,7 +142,7 @@
       <ModuleDefinitionFile>scratch.def</ModuleDefinitionFile>
     </Link>
     <PreBuildEvent>
-      <Command>$(AC_SourcePath)/VC/fwk/tool/dspdefgen $(TargetName)</Command>
+      <Command>../../../../Revolabs/NextGen/AudioComponents/VC/fwk/tool/dspdefgen $(TargetName)</Command>
     </PreBuildEvent>
     <Lib>
       <AdditionalDependencies>vcwrap.lib;audiolib.lib;</AdditionalDependencies>
@@ -161,8 +159,9 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_CRT_SECURE_NO_DEPRECATE=1;_USRDLL;DSPDLL_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>../../../audiolib;$(AC_SourcePath)/VC/fwk/include;$(AC_SourcePath)/VC/fwk/vcwrap/source;$(AC_SourcePath)/audiolib;$(AC_SourcePath)/audiolib/DSP/c674x;$(AC_SourcePath)/audiolib/DSP/c674x/dsplib_v12/src</AdditionalIncludeDirectories>
-      <ForcedIncludeFiles>vcwrap.h</ForcedIncludeFiles>
+      <AdditionalIncludeDirectories>../../../audiolib;../../../../Revolabs/NextGen/AudioComponents/VC/fwk/include;../../../../Revolabs/NextGen/AudioComponents/VC/fwk/vcwrap/source;../../../../Revolabs/NextGen/AudioComponents/audiolib;../../../../Revolabs/NextGen/AudioComponents/audiolib/DSP/c674x;../../../../Revolabs/NextGen/AudioComponents/audiolib/DSP/c674x/dsplib_v12/src;../../../../Revolabs/NextGen/AudioComponents/AudioModules;../../../../Revolabs/NextGen/AudioComponents/Codecs</AdditionalIncludeDirectories>
+      <ForcedIncludeFiles>
+      </ForcedIncludeFiles>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -176,7 +175,7 @@
       </IgnoreAllDefaultLibraries>
     </Link>
     <PreBuildEvent>
-      <Command>$(AC_SourcePath)/VC/fwk/tool/dspdefgen $(TargetName)</Command>
+      <Command>../../../../Revolabs/NextGen/AudioComponents/VC/fwk/tool/dspdefgen $(TargetName)</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release_staticlib|Win32'">
@@ -189,8 +188,9 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_CRT_SECURE_NO_DEPRECATE=1;_USRDLL;DSPDLL_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>../../../audiolib;$(AC_SourcePath)/VC/fwk/include;$(AC_SourcePath)/VC/fwk/vcwrap/source;$(AC_SourcePath)/audiolib;$(AC_SourcePath)/audiolib/DSP/c674x;$(AC_SourcePath)/audiolib/DSP/c674x/dsplib_v12/src</AdditionalIncludeDirectories>
-      <ForcedIncludeFiles>vcwrap.h</ForcedIncludeFiles>
+      <AdditionalIncludeDirectories>../../../audiolib;../../../../Revolabs/NextGen/AudioComponents/VC/fwk/include;../../../../Revolabs/NextGen/AudioComponents/VC/fwk/vcwrap/source;../../../../Revolabs/NextGen/AudioComponents/audiolib;../../../../Revolabs/NextGen/AudioComponents/audiolib/DSP/c674x;../../../../Revolabs/NextGen/AudioComponents/audiolib/DSP/c674x/dsplib_v12/src;../../../../Revolabs/NextGen/AudioComponents/AudioModules;../../../../Revolabs/NextGen/AudioComponents/Codecs</AdditionalIncludeDirectories>
+      <ForcedIncludeFiles>
+      </ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
@@ -201,7 +201,7 @@
       <ModuleDefinitionFile>scratch.def</ModuleDefinitionFile>
     </Link>
     <PreBuildEvent>
-      <Command>$(AC_SourcePath)/VC/fwk/tool/dspdefgen $(TargetName)</Command>
+      <Command>../../../../Revolabs/NextGen/AudioComponents/VC/fwk/tool/dspdefgen $(TargetName)</Command>
     </PreBuildEvent>
     <Lib>
       <AdditionalDependencies>vcwrap.lib;audiolib.lib;</AdditionalDependencies>

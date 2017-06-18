@@ -1,42 +1,45 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="..\source\dspapi.cpp">
-      <Filter>API</Filter>
-    </ClCompile>
-    <ClCompile Include="..\source\dsptop.c">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\audiolib\tcanalysis.c">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\audiolib\vsb.c">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\audiolib\FBvsb.c">
-      <Filter>Source</Filter>
-    </ClCompile>
+    <Filter Include="source">
+      <UniqueIdentifier>{5f5fb669-9702-4286-8e0f-30287c47f6cd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="API %28don%27t touch%29">
+      <UniqueIdentifier>{a5a29b48-0007-47f3-81fb-a8cfd44d2442}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="audiolib">
+      <UniqueIdentifier>{fe05b948-fa50-4f9c-b57e-d68118d9f65c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <Filter Include="API">
-      <UniqueIdentifier>{708ce54c-4093-46a1-9781-03663f3220c4}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source">
-      <UniqueIdentifier>{1ed9cff2-9898-42ab-8941-72d6e35a1f75}</UniqueIdentifier>
-    </Filter>
+    <ClCompile Include="..\source\dsptop.c">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\dspapi.cpp">
+      <Filter>API %28don%27t touch%29</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\audiolib\FBvsb.c">
+      <Filter>audiolib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\audiolib\tcanalysis.c">
+      <Filter>audiolib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\audiolib\vsb.c">
+      <Filter>audiolib</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\source\dsptop.h">
-      <Filter>Source</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\audiolib\tcanalysis.h">
-      <Filter>Source</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\audiolib\vsb.h">
-      <Filter>Source</Filter>
+      <Filter>source</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\audiolib\FBvsb.h">
-      <Filter>Source</Filter>
+      <Filter>audiolib</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\audiolib\tcanalysis.h">
+      <Filter>audiolib</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\audiolib\vsb.h">
+      <Filter>audiolib</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
