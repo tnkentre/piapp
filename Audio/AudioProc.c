@@ -203,9 +203,9 @@ void AudioProc_init(void)
   st->tcana_R = tcanalysis_init("tcana_R", FS, 1000.f);
   for (ch=0; ch<NLAYER; ch++) {
     sprintf(name, "vsb_L%d", ch);
-    st->vsb_L[ch] = vsb_init(subname, (int)(FS * 60.f / 33.3f));
+    st->vsb_L[ch] = vsb_init(name, (int)(FS * 60.f / 33.3f));
     sprintf(name, "vsb_R%d", ch);
-    st->vsb_R[ch] = vsb_init(subname, (int)(FS * 60.f / 33.3f));
+    st->vsb_R[ch] = vsb_init(name, (int)(FS * 60.f / 33.3f));
   }
   
   /* initialize mailbox */

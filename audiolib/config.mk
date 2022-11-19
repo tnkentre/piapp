@@ -40,6 +40,7 @@ export MODULE_SUB_DIRS		:= 	\
 export MODULE_CFLAGS += \
 	-I$(AC)/Include.$(PLATFORM) \
 	-I$(AC)/audiolib/speex/include \
+	-I$(AC)/audiolib/DSP/c674x/dsplib_v12/src \
 	-DWITH_POSIX -Drestrict="" \
 
 export MODULE_LDFLAGS = \

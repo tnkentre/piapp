@@ -23,25 +23,14 @@
 #include "AudioProc.h"
 #endif
 
+//----------------------------------------------------------
+// Memory size definition
+//----------------------------------------------------------
+int IRAM_MAX_SIZE = 0;
+int SHARED_MAX_SIZE = 0;
+
+
 /** Stubs for local board specific functions */
-
-void setLed(int led, int on)
-{
-}
-
-
-int I2C_read(rv_int16 bus, rv_int16 dev, int reg,  int *val, int len)
-{
-  return 0;
-}
-
-
-int I2C_write(rv_int16 bus, rv_int16 dev, int reg, const int *val, int len)
-{
-  return 0;
-}
-
-
 static void handler(int sig, siginfo_t *si, void *unused)
 {
   printf("SIGSEGV at %p\n", si->si_addr);
