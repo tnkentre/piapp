@@ -25,7 +25,8 @@
 # Prefix for this module
 export MODULE_PREFIX = AudioServer
 
-export AC := $(SVNROOT)/AudioComponents/trunk
+#export AC := $(SVNROOT)/AudioComponents/trunk
+export AC := $(SVNROOT)/audiocomponents
 
 # Type of output this module will produce: archive (.a), dynamic (.so), or exe
 export MODULE_OUTPUT = exe
@@ -40,12 +41,12 @@ export MODULE_SUB_DIRS		:= 	\
 export MODULE_CFLAGS += \
 	-I$(AC)/Include.$(PLATFORM) \
 	-I$(AC)/audiolib/speex/include \
+	-I$(AC)/audiolib/DSP/c674x/		\
 	-I$(AC)/audiolib/DSP/c674x/dsplib_v12/src \
 	-I../audiolib \
 	-DWITH_POSIX -Drestrict="" \
 
 export MODULE_LDFLAGS += \
-	-ljack \
 
 export MODULE_EXTERN_LIBS := \
 	$(addprefix $(AC)/Build.$(PLATFORM)/, \

@@ -34,7 +34,8 @@ COMMON_PATHS= \
 	-Wl,--no-whole-archive \
 	$(MODULE_OBJS) \
 	__version_info_$(PLATFORM).o \
-	$(MODULE_EXTERN_LIBS) -lrt -lc -lpthread
+	$(MODULE_EXTERN_LIBS) \
+	-lrt -lc -lm -lpthread -ljack -lwiringPi
 
 # This will generate .a archive files
 $(MODULE_ARCHIVE): \
@@ -79,4 +80,3 @@ $(MODULE_EXE): \
 		$(addprefix -l,$(MODULE_DYNAMICS)) \
 		-o $@
 	$(SRP) $@
-		

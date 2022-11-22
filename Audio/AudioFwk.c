@@ -169,7 +169,7 @@ AudioFwkState* audiofwk_init(const char * name, int nch_input, int nch_output, i
   st->output_buffers = AUDIOFWK_MEM_ALLOC(MEM_SDRAM, float*,       st->nch_output, 4);
 
   /* Name each ports */
-  char port_name[16];
+  char port_name[20];
   for (i=0; i<st->nch_input; i++) {
     sprintf ( port_name, "input_%d", i + 1 );
     st->input_ports[i] = jack_port_register ( st->client, port_name, JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0 );

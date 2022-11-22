@@ -25,7 +25,8 @@
 # Prefix for this module
 export MODULE_PREFIX = audiolib2
 
-export AC := $(SVNROOT)/AudioComponents/trunk
+#export AC := $(SVNROOT)/AudioComponents/trunk
+export AC := $(SVNROOT)/audiocomponents
 
 # Type of output this module will produce: archive (.a), dynamic (.so), or exe
 export MODULE_OUTPUT = archive
@@ -40,6 +41,7 @@ export MODULE_SUB_DIRS		:= 	\
 export MODULE_CFLAGS += \
 	-I$(AC)/Include.$(PLATFORM) \
 	-I$(AC)/audiolib/speex/include \
+	-I$(AC)/audiolib/DSP/c674x/		\
 	-I$(AC)/audiolib/DSP/c674x/dsplib_v12/src \
 	-DWITH_POSIX -Drestrict="" \
 

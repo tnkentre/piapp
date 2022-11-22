@@ -46,7 +46,7 @@
 /*****************
  *    Tool       *
  *****************/
-static vec_angle(float * restrict angle, const rv_complex * X, int nband)
+static void vec_angle(float * restrict angle, const rv_complex * X, int nband)
 {
   int i;
   for (i=0; i<nband; i++) {
@@ -164,9 +164,6 @@ static void proc_put(FBVSB_State * restrict st, float* src[], float* speed)
   int cur           = (int)(st->fpos / frame_size);
   int putlen        = 0;
   CH * chst;
-
-  float maxval;
-  float minval;
 
   VARDECLR(float,      fftbuf);
   VARDECLR(rv_complex, fdtemp);

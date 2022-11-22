@@ -29,6 +29,7 @@ CXXSRC	= \
 CSRC	= \
 	tcanalysis.c	\
 	vsb.c	\
+	FBvsb.c	\
 
 
 # Assembly files

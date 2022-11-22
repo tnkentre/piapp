@@ -36,14 +36,13 @@ static void handler(int sig, siginfo_t *si, void *unused)
   printf("SIGSEGV at %p\n", si->si_addr);
 }
 
-
+#if USE_AUDIOPROC == 0
 pthread_mutex_t syncAudio;
 
 static void pinCallback()
 {
   pthread_mutex_unlock(&syncAudio);  
 }
-
 
 void TaskAudio(void)
 {
@@ -69,7 +68,7 @@ static TSK_Handle TskAudio;
 static TaskDescriptor_t TaskDescriptor[] = {
   { &TskAudio, F(TaskAudio), 80*1024, 70 },
 };
-
+#endif /* USE_AUDIOPROC == 0 */
 
 int main()
 {
@@ -116,9 +115,9 @@ int main()
 #if USE_AUDIOPROC
   /* start audio processing with JACK */
   AudioProc_init();
-#endif
-
+#else
   Task_init(TaskDescriptor, NBELEM(TaskDescriptor));
+#endif
 
   while (1) {
     /* open, read, and display the message from the FIFO */

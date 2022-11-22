@@ -22,7 +22,7 @@
 # version: $LastChangedRevision: 11780 $
 # author: zkhan
 
-export AC := $(SVNROOT)/AudioComponents/trunk
+export AC := $(SVNROOT)/audiocomponents
 
 # Location of cross tools 
 export TOOL_PATH			 := \
@@ -40,8 +40,7 @@ export AR	:= $(TOOL_PATH)/$(TOOL_PREFIX)ar
 export SRP	:= touch
 
 # Linker flags for all modules
-export ALL_LDFLAGS 	:= -lm --gc-sections \
-	-L/usr/local/lib -lwiringPi	\
+export ALL_LDFLAGS 	:= --gc-sections \
 	$(LDFLAGS) 
 
 # Assembler flags for all modules
@@ -53,7 +52,6 @@ export ALL_CFLAGS	:= \
 	$(CFLAGS) \
 	-I. -I/usr/local/include \
 	-Wall -DARM -DWITH_POSIX -D$(PLATFORM) -O3 -g -fPIC -fdata-sections -ffunction-sections \
-	-I$(AC)/audiolib/DSP/c674x/		\
 
 # C++ compiler flags for all modules
 export ALL_CXXFLAGS	:= \
