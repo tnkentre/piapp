@@ -26,6 +26,7 @@
 export MODULE_PREFIX = CliClient
 
 export AC := $(SVNROOT)/AudioComponents/trunk
+#export AC := $(SVNROOT)/audiocomponents
 
 # Type of output this module will produce: archive (.a), dynamic (.so), or exe
 export MODULE_OUTPUT = exe
