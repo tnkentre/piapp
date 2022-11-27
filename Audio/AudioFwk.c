@@ -128,7 +128,10 @@ process_callback( jack_nframes_t nframes, void *arg )
 void audiofwk_close(AudioFwkState* st)
 {
   if (st) {
-    if (st->client)       jack_client_close(st->client);
+    if (st->client) {
+      jack_deactivate(st->client);
+      jack_client_close(st->client);
+    }
     if (st->input_ports)  AUDIOFWK_MEM_FREE(st->input_ports);
     if (st->output_ports) AUDIOFWK_MEM_FREE(st->output_ports);
     if (st->input_ports)  AUDIOFWK_MEM_FREE(st->input_buffers);

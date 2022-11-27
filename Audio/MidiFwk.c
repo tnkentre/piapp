@@ -33,6 +33,7 @@
 #include <signal.h>
 #include <jack/jack.h>
 #include <jack/midiport.h>
+#include <jack/ringbuffer.h>
 
 #include "RevoRT.h"
 #include "FixedHeap.h"
@@ -46,30 +47,30 @@
 #define MIDIFWK_MEM_FREE(ptr) free(ptr)
 #endif
 
-#define MBX_LENGTH 64
+#define RBSIZE 512
 
 struct MidiFwkState_ {
   MIDIFWK_PROCESS_CALLBACK  process_callback;
   jack_client_t *           client;
   jack_port_t *             input_port;
   jack_port_t *             output_port;
+  jack_ringbuffer_t *       rb;
+  pthread_mutex_t           msg_thread_lock;
+  pthread_cond_t            data_ready;
   uint64_t                  monotonic_cnt;
 
   /* Task handler */
   char             tskName[32];
-  MBX_Handle       mbx;
   TSK_Handle       tsk;
   TaskDescriptor_t tskDescriptor;  
 };
 
-/* command format of Mailbox */
 typedef struct {
-  uint64_t time;
-  uint8_t  type;
-  uint8_t  channel;
-  uint8_t  param;
-  uint8_t  value;
-} cmd_desc_t;
+  uint8_t  buffer[128];
+  uint32_t size;
+  uint32_t tme_rel;
+  uint64_t tme_mon;
+} midimsg;
 
 /*----------------------------------
     Task of MidiFwk
@@ -78,27 +79,36 @@ static void
 process_task(void* arg1)
 {
   static Environment_t env;
-  cmd_desc_t cmd;
   MidiFwkState *st = (MidiFwkState*)arg1;
 
   TRACE(LEVEL_INFO, "Task MidiFwk started on CPU %d", sched_getcpu());
   
   InitEnvironment(&env, 128*1024, __func__);
 
+  pthread_mutex_lock (&st->msg_thread_lock);
+
   do {
-    MBX_pend(st->mbx, &cmd, SYS_FOREVER);
+    pthread_cond_wait (&st->data_ready, &st->msg_thread_lock);
 
     // Not needed because not a real time task
     Task_startNewCycle();
 
-    if (st->process_callback) {
-      st->process_callback(cmd.time,
-			   cmd.type,
-			   cmd.channel,
-			   cmd.param,
-			   cmd.value);
-    }
+    const int mqlen = jack_ringbuffer_read_space (st->rb) / sizeof(midimsg);
 
+    int i;
+    for (i=0; i < mqlen; ++i) {
+      midimsg m;
+      jack_ringbuffer_read(st->rb, (char*) &m, sizeof(midimsg));
+
+      if (m.size >=3 && st->process_callback) {
+	st->process_callback(m.tme_rel + m.tme_mon, // time
+			     m.buffer[0] & 0xf0,    // type
+			     m.buffer[0] & 0x0f,    // chennel
+			     m.buffer[1],           // param
+			     m.buffer[2]            // value
+			     );
+      }
+    }
   } while(1);
 }
 
@@ -125,29 +135,127 @@ process_callback( jack_nframes_t nframes, void *arg )
   N = jack_midi_get_event_count (buffer);
   for (i = 0; i < N; ++i) {
     jack_midi_event_t event;
-    cmd_desc_t cmd;
-    if ( !jack_midi_event_get (&event, buffer, i) ) {
-      if (event.size >= 3) {
-	cmd.time          = st->monotonic_cnt + event.time;
-	cmd.type          = event.buffer[0] & 0xf0;
-	cmd.channel       = event.buffer[0] & 0x0f;
-	cmd.param         = event.buffer[1];
-	cmd.value         = event.buffer[2];
-	MBX_post(st->mbx, &cmd, 0);
-      }
+    int r;
+    r = jack_midi_event_get (&event, buffer, i);
+    if (r == 0 && jack_ringbuffer_write_space (st->rb) >= sizeof(midimsg)) {
+      midimsg m;
+      m.tme_mon = st->monotonic_cnt;
+      m.tme_rel = event.time;
+      m.size    = event.size;
+      memcpy (m.buffer, event.buffer, MAX(sizeof(m.buffer), event.size));
+      jack_ringbuffer_write (st->rb, (void *) &m, sizeof(midimsg));
     }
   }
   st->monotonic_cnt += nframes;
+  if (pthread_mutex_trylock (&st->msg_thread_lock) == 0) {
+    pthread_cond_signal (&st->data_ready);
+    pthread_mutex_unlock (&st->msg_thread_lock);
+  }
+
   return 0;
 }
 
 void midifwk_close(MidiFwkState* st)
 {
   if (st) {
-    if (st->client)       jack_client_close(st->client);
+    if (st->client) {
+      jack_deactivate(st->client);
+      jack_client_close(st->client);
+    }
+    if (st->rb)           jack_ringbuffer_free (st->rb);
     MIDIFWK_MEM_FREE(st);
   }
 }
+
+  /* Connect the ports.  You can't do this before the client is
+   * activated, because we can't make connections to clients
+   * that aren't running.  Note the confusing (but necessary)
+   * orientation of the driver backend ports: playback ports are
+   * "input" to the backend, and capture ports are "output" from
+   * it.
+   */
+int
+midifwk_connect_midiin(MidiFwkState* st, const char* port_name)
+{
+  int i = 0;
+  int id = -1;
+  int port_name_len;
+  const char **ports;
+  int ret = 0;
+  
+  ports = jack_get_ports ( st->client, NULL, "8 bit raw midi", JackPortIsOutput );
+  if (ports==NULL) {
+    fprintf ( stderr, "cannot find %s for MIDI IN port\n", port_name);
+    return -1;
+  }
+
+  port_name_len = strlen(port_name);
+  while(ports[i] && id < 0) {
+    int j=0;
+    while(port_name_len <= strlen(&ports[i][j])) {
+      if (!strncmp(port_name, &ports[i][j], port_name_len)) {
+	id = i;
+	break;
+      }
+      j++;
+    }
+    i++;
+  }
+  if (id < 0) {
+    fprintf ( stderr, "cannot find %s for MIDI IN port\n", port_name);
+    ret = -2;
+  }
+  else {
+    if ( jack_connect ( st->client, ports[id], jack_port_name ( st->input_port ) ) ) {
+      fprintf ( stderr, "cannot connect %s as MIDI IN port\n", port_name);
+      ret = -3;
+    }
+  }
+  free ( ports );
+  return ret;
+}
+
+int
+midifwk_connect_midiout(MidiFwkState* st, const char* port_name)
+{
+  int i = 0;
+  int id = -1;
+  int port_name_len;
+  const char **ports;
+  int ret = 0;
+  
+  ports = jack_get_ports ( st->client, NULL, "8 bit raw midi", JackPortIsInput );
+  if (ports==NULL) {
+    fprintf ( stderr, "cannot find %s for MIDI OUT port\n", port_name);
+    return -1;
+  }
+
+  port_name_len = strlen(port_name);
+  while(ports[i] && id < 0) {
+    int j=0;
+    while(port_name_len <= strlen(&ports[i][j])) {
+      if (!strncmp(port_name, &ports[i][j], port_name_len)) {
+	id = i;
+	break;
+      }
+      j++;
+    }
+    i++;
+  }
+  if (id < 0) {
+    fprintf ( stderr, "cannot find %s for MIDI OUT port\n", port_name);
+    ret = -2;
+  }
+  else {
+    if ( jack_connect ( st->client, ports[id], jack_port_name ( st->output_port ) ) ) {
+      fprintf ( stderr, "cannot connect %s as MIDI OUT port\n", port_name);
+      ret = -3;
+    }
+  }
+  free ( ports );
+  return ret;
+}
+
 
 /**
  * JACK calls this shutdown_callback if the server ever shuts down or
@@ -164,7 +272,6 @@ midifwk_shutdown ( void *arg )
 MidiFwkState* midifwk_init(const char * name, MIDIFWK_PROCESS_CALLBACK callback)
 {
   MidiFwkState *st = NULL;
-  const char **ports;
   const char *client_name;
   const char *server_name = NULL;
   jack_options_t options = JackNullOption;
@@ -174,8 +281,10 @@ MidiFwkState* midifwk_init(const char * name, MIDIFWK_PROCESS_CALLBACK callback)
   st = MIDIFWK_MEM_ALLOC(MEM_SDRAM, MidiFwkState, 1, 4);
   st->process_callback = callback;
 
-  /* initialize mailbox */
-  st->mbx = MBX_create(sizeof(cmd_desc_t), MBX_LENGTH, NULL);
+  pthread_mutex_init(&st->msg_thread_lock, NULL);
+  pthread_cond_init(&st->data_ready, NULL);
+  st->rb = jack_ringbuffer_create (RBSIZE * sizeof(midimsg));
+
   /* initialize task */
   sprintf(st->tskName, "TaskMidiFwk");
   st->tskDescriptor.h        = &st->tsk;
@@ -237,41 +346,6 @@ MidiFwkState* midifwk_init(const char * name, MIDIFWK_PROCESS_CALLBACK callback)
     fprintf ( stderr, "cannot activate client" );
     goto ERR_END;
   }
-
-  /* !!!Need to be modified below!!! */
-  
-
-  /* Connect the ports.  You can't do this before the client is
-   * activated, because we can't make connections to clients
-   * that aren't running.  Note the confusing (but necessary)
-   * orientation of the driver backend ports: playback ports are
-   * "input" to the backend, and capture ports are "output" from
-   * it.
-   */
-
-  ports = jack_get_ports ( st->client, NULL, NULL, JackPortIsOutput );
-  if ( ports == NULL ) {
-    fprintf ( stderr, "no physical capture ports\n" );
-    goto ERR_END;
-  }
-
-  if ( jack_connect ( st->client, ports[0], jack_port_name ( st->input_port ) ) ) {
-    fprintf ( stderr, "cannot connect input ports\n" );
-  }
-
-  free ( ports );
-
-  ports = jack_get_ports ( st->client, NULL, NULL, JackPortIsInput );
-  if ( ports == NULL ) {
-    fprintf ( stderr, "no physical playback ports\n" );
-    goto ERR_END;
-  }
-
-  if ( jack_connect ( st->client, jack_port_name ( st->output_port ), ports[0] ) ) {
-    fprintf ( stderr, "cannot connect output ports\n" );
-  }
-
-  free ( ports );
 
   return st;
   

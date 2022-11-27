@@ -56,4 +56,21 @@ MidiFwkState* midifwk_init(const char * name, MIDIFWK_PROCESS_CALLBACK callback)
  */
 void midifwk_close(MidiFwkState* st);
 
+/** @fn int midifwk_connect_midiin(MidiFwkState* st, const char* port_name)
+ * @brief This function connect input port
+ * @param st State of MidiFwk
+ * @param port_name Name of MIDI input port
+ * @return Error code 0:OK <0:NG
+ */
+int midifwk_connect_midiin(MidiFwkState* st, const char* port_name);
+
+/** @fn int midifwk_connect_midiout(MidiFwkState* st, const char* port_name)
+ * @brief This function connect output port
+ * @param st State of MidiFwk
+ * @param port_name Name of MIDI output port
+ * @return Error code 0:OK <0:NG
+ */
+int midifwk_connect_midiout(MidiFwkState* st, const char* port_name);
+
+
 #endif /* _MIDIFWK_H_ */

@@ -44,7 +44,8 @@
  * AEC functions
  */
 #define FS           (48000)
-#define FRAME_SIZE   (FS/100)
+//#define FRAME_SIZE   (FS/100)
+#define FRAME_SIZE   (512)
 #define NCH_INPUT    (6)
 #define NCH_OUTPUT   (6)
 #define NLAYER       (8)
@@ -174,6 +175,7 @@ void AudioProc_init(void)
   /* Initialize and start AudioFwk */
   st->audfwk = audiofwk_init("AudioProc", st->nch_input, st->nch_output, st->frame_size, AudioProc);
   st->midifwk = midifwk_init("MidiProc", MidiProc);
+  midifwk_connect_midiin(st->midifwk, "Nocturn Keyboard");
 }
 
 void AudioProc_close(void)
