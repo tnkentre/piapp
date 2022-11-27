@@ -37,7 +37,7 @@ struct MidiFwkState_;
 typedef struct MidiFwkState_ MidiFwkState;
 
 /** Declare type of callback function which will be called every frame. */
-typedef void (*MIDIFWK_PROCESS_CALLBACK)(uint64_t monotonic_cnt, uint32_t time, uint8_t type, uint8_t channel, uint8_t param, uint8_t value);
+typedef void (*MIDIFWK_PROCESS_CALLBACK)(uint64_t time, uint8_t type, uint8_t channel, uint8_t param, uint8_t value);
 
 /** @fn MidiFwkState* midifwk_init(const char * name, int nch_input, int nch_output, int frame_size, MIDIFWK_PROCESS_CALLBACK callback)
  * @brief This function initialize and start the audio processing for JACK

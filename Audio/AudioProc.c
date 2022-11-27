@@ -144,10 +144,10 @@ static void AudioProc(float * out[], float* in[])
   
 }
 
-void MidiProc(uint64_t monotonic_cnt, uint32_t time, uint8_t type, uint8_t channel, uint8_t param, uint8_t value)
+void MidiProc(uint64_t time, uint8_t type, uint8_t channel, uint8_t param, uint8_t value)
 {
-  printf("MIDI:%llu:%u: type=0x%02X, channel=%d, param=%d, value=%d\n",
-	 monotonic_cnt, time, type, channel, param, value);
+  printf("MIDI:%llu: type=0x%02X, channel=%d, param=%d, value=%d\n",
+	 time, type, channel, param, value);
 }
 
 void AudioProc_init(void)

@@ -46,7 +46,7 @@
 #define MIDIFWK_MEM_FREE(ptr) free(ptr)
 #endif
 
-#define MBX_LENGTH 1024
+#define MBX_LENGTH 64
 
 struct MidiFwkState_ {
   MIDIFWK_PROCESS_CALLBACK  process_callback;
@@ -64,8 +64,7 @@ struct MidiFwkState_ {
 
 /* command format of Mailbox */
 typedef struct {
-  uint64_t monotonic_cnt;
-  uint32_t time;
+  uint64_t time;
   uint8_t  type;
   uint8_t  channel;
   uint8_t  param;
@@ -93,8 +92,7 @@ process_task(void* arg1)
     Task_startNewCycle();
 
     if (st->process_callback) {
-      st->process_callback(cmd.monotonic_cnt,
-			   cmd.time,
+      st->process_callback(cmd.time,
 			   cmd.type,
 			   cmd.channel,
 			   cmd.param,
@@ -130,7 +128,7 @@ process_callback( jack_nframes_t nframes, void *arg )
     cmd_desc_t cmd;
     if ( !jack_midi_event_get (&event, buffer, i) ) {
       if (event.size >= 3) {
-	cmd.monotonic_cnt = st->monotonic_cnt;
+	cmd.time          = st->monotonic_cnt + event.time;
 	cmd.type          = event.buffer[0] & 0xf0;
 	cmd.channel       = event.buffer[0] & 0x0f;
 	cmd.param         = event.buffer[1];
@@ -251,7 +249,7 @@ MidiFwkState* midifwk_init(const char * name, MIDIFWK_PROCESS_CALLBACK callback)
    * it.
    */
 
-  ports = jack_get_ports ( st->client, NULL, NULL, JackPortIsPhysical|JackPortIsOutput );
+  ports = jack_get_ports ( st->client, NULL, NULL, JackPortIsOutput );
   if ( ports == NULL ) {
     fprintf ( stderr, "no physical capture ports\n" );
     goto ERR_END;
@@ -263,7 +261,7 @@ MidiFwkState* midifwk_init(const char * name, MIDIFWK_PROCESS_CALLBACK callback)
 
   free ( ports );
 
-  ports = jack_get_ports ( st->client, NULL, NULL, JackPortIsPhysical|JackPortIsInput );
+  ports = jack_get_ports ( st->client, NULL, NULL, JackPortIsInput );
   if ( ports == NULL ) {
     fprintf ( stderr, "no physical playback ports\n" );
     goto ERR_END;
