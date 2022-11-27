@@ -30,6 +30,7 @@ CSRC	= \
 	AudioServer.c	\
 	target_cli.c	\
 	AudioFwk.c	\
+	MidiFwk.c	\
 	AudioProc.c	\
 
 

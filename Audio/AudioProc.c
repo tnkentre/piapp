@@ -33,6 +33,7 @@
 #include "vectors.h"
 #include "cli.h"
 #include "AudioFwk.h"
+#include "MidiFwk.h"
 #include "FB.h"
 #include "FB_filters.h"
 #include "tcanalysis.h"
@@ -65,29 +66,20 @@ typedef struct {
   VSB_State * vsb_L[NLAYER];
   VSB_State * vsb_R[NLAYER];
 
-  /* Task handler */
-  char             tskName[32];
-  MBX_Handle       mbx;
-  SEM_Handle       sem;
-  TSK_Handle       tsk;
-  TaskDescriptor_t tskDescriptor;  
-  
   /* Audio FWK (JACK interface) */
   AudioFwkState*   audfwk;
 
-} AudioProcState;
+  /* MIDI FWK (JACK interface) */
+  MidiFwkState*   midifwk;
 
-/* command format of Mailbox */
-typedef struct {
-  float ** input_buffers;
-  float ** output_buffers;
-} cmd_desc_t;
+} AudioProcState;
 
 /* The instance */
 static AudioProcState* audioproc_st = NULL;
 
-static void proc(AudioProcState* st, float * out[], float* in[])
+static void AudioProc(float * out[], float* in[])
 {
+  AudioProcState* st = audioproc_st;
   int ch;
   int frame_size = st->frame_size;
   int nch_input  = st->nch_input;
@@ -152,38 +144,10 @@ static void proc(AudioProcState* st, float * out[], float* in[])
   
 }
 
-/*----------------------------------
-    Task of AudioProc
- -----------------------------------*/
-static void TaskAudioProc(void* arg1)
+void MidiProc(uint64_t monotonic_cnt, uint32_t time, uint8_t type, uint8_t channel, uint8_t param, uint8_t value)
 {
-  static Environment_t env;
-  cmd_desc_t cmd;
-  //  AudioProcState *st = (AudioProcState*)arg1;
-  AudioProcState *st = audioproc_st;
-
-  TRACE(LEVEL_INFO, "Task AudioProc started on CPU %d", sched_getcpu());
-  
-  InitEnvironment(&env, 128*1024, __func__);
-
-  do {
-    MBX_pend(st->mbx, &cmd, SYS_FOREVER);
-
-    // Not needed because not a real time task
-    Task_startNewCycle();
-
-    proc(st, cmd.output_buffers, cmd.input_buffers);
-
-  } while(1);
-}
-
-void AudioProc(float* out[], float* in[])
-{
-  AudioProcState* st = audioproc_st;
-  cmd_desc_t cmd;
-  cmd.input_buffers = in;
-  cmd.output_buffers = out;
-  MBX_post(st->mbx, &cmd, 0);
+  printf("MIDI:%llu:%u: type=0x%02X, channel=%d, param=%d, value=%d\n",
+	 monotonic_cnt, time, type, channel, param, value);
 }
 
 void AudioProc_init(void)
@@ -198,7 +162,6 @@ void AudioProc_init(void)
   st->nch_input  = NCH_INPUT;
   st->nch_output = NCH_OUTPUT;
 
-
   st->tcana_L = tcanalysis_init("tcana_L", FS, 1000.f);
   st->tcana_R = tcanalysis_init("tcana_R", FS, 1000.f);
   for (ch=0; ch<NLAYER; ch++) {
@@ -207,27 +170,15 @@ void AudioProc_init(void)
     sprintf(name, "vsb_R%d", ch);
     st->vsb_R[ch] = vsb_init(name, (int)(FS * 60.f / 33.3f));
   }
-  
-  /* initialize mailbox */
-  st->mbx = MBX_create(sizeof(cmd_desc_t), 1, NULL);
-  /* initialize semapho */
-  st->sem = SEM_create(1, NULL);
-  /* initialize task */
-  sprintf(st->tskName, "TaskAudioProc");
-  st->tskDescriptor.h        = &st->tsk;
-  st->tskDescriptor.f        = (Fxn)TaskAudioProc;
-  st->tskDescriptor.name     = st->tskName;
-  st->tskDescriptor.stack    = 5*1024;
-  st->tskDescriptor.priority = 10;
-  st->tskDescriptor.arg1     = st;
-  Task_init(&st->tskDescriptor, 1);
-   
+     
   /* Initialize and start AudioFwk */
   st->audfwk = audiofwk_init("AudioProc", st->nch_input, st->nch_output, st->frame_size, AudioProc);
+  st->midifwk = midifwk_init("MidiProc", MidiProc);
 }
 
 void AudioProc_close(void)
 {
   AudioProcState* st = audioproc_st;
   audiofwk_close(st->audfwk);
+  midifwk_close(st->midifwk);
 }

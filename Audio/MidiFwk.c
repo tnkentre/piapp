@@ -19,8 +19,8 @@
  ******************************************************************************/
 
 /**
- * @file AudioFwk.c
- * @brief Audio processing frame work
+ * @file MidiFwk.c
+ * @brief Midi processing frame work
  * @version $LastChangedRevision:$
  * @author Ryo Tanaka
  */
@@ -32,29 +32,28 @@
 #include <math.h>
 #include <signal.h>
 #include <jack/jack.h>
+#include <jack/midiport.h>
 
 #include "RevoRT.h"
 #include "FixedHeap.h"
-#include "AudioFwk.h"
+#include "MidiFwk.h"
 
 #if 0
-#define AUDIOFWK_MEM_ALLOC(pool, type, count, alignment) MEM_ALLOC(pool, type, count, alignment)
-#define AUDIOFWK_MEM_FREE(ptr) 
+#define MIDIFWK_MEM_ALLOC(pool, type, count, alignment) MEM_ALLOC(pool, type, count, alignment)
+#define MIDIFWK_MEM_FREE(ptr) 
 #else
-#define AUDIOFWK_MEM_ALLOC(pool, type, count, alignment) (type*)calloc(count, sizeof(type))
-#define AUDIOFWK_MEM_FREE(ptr) free(ptr)
+#define MIDIFWK_MEM_ALLOC(pool, type, count, alignment) (type*)calloc(count, sizeof(type))
+#define MIDIFWK_MEM_FREE(ptr) free(ptr)
 #endif
 
-struct AudioFwkState_ {
-  int                       nch_input;
-  int                       nch_output;
-  int                       frame_size;
-  AUDIOFWK_PROCESS_CALLBACK process_callback;
+#define MBX_LENGTH 1024
+
+struct MidiFwkState_ {
+  MIDIFWK_PROCESS_CALLBACK  process_callback;
   jack_client_t *           client;
-  jack_port_t **            input_ports;
-  jack_port_t **            output_ports;
-  float **                  input_buffers;
-  float **                  output_buffers;
+  jack_port_t *             input_port;
+  jack_port_t *             output_port;
+  uint64_t                  monotonic_cnt;
 
   /* Task handler */
   char             tskName[32];
@@ -65,20 +64,25 @@ struct AudioFwkState_ {
 
 /* command format of Mailbox */
 typedef struct {
-  jack_nframes_t nframes;
+  uint64_t monotonic_cnt;
+  uint32_t time;
+  uint8_t  type;
+  uint8_t  channel;
+  uint8_t  param;
+  uint8_t  value;
 } cmd_desc_t;
 
 /*----------------------------------
-    Task of AudioFwk
+    Task of MidiFwk
  -----------------------------------*/
 static void
 process_task(void* arg1)
 {
   static Environment_t env;
   cmd_desc_t cmd;
-  AudioFwkState *st = (AudioFwkState*)arg1;
+  MidiFwkState *st = (MidiFwkState*)arg1;
 
-  TRACE(LEVEL_INFO, "Task AudioFwk started on CPU %d", sched_getcpu());
+  TRACE(LEVEL_INFO, "Task MidiFwk started on CPU %d", sched_getcpu());
   
   InitEnvironment(&env, 128*1024, __func__);
 
@@ -89,12 +93,16 @@ process_task(void* arg1)
     Task_startNewCycle();
 
     if (st->process_callback) {
-      st->process_callback(st->output_buffers, st->input_buffers);
+      st->process_callback(cmd.monotonic_cnt,
+			   cmd.time,
+			   cmd.type,
+			   cmd.channel,
+			   cmd.param,
+			   cmd.value);
     }
 
   } while(1);
 }
-
 
 /**
  * The process callback for this JACK application is called in a
@@ -107,33 +115,39 @@ process_task(void* arg1)
 static int
 process_callback( jack_nframes_t nframes, void *arg )
 {
-  int i;
-  AudioFwkState* st = (AudioFwkState*)arg;
-  cmd_desc_t cmd;
+  MidiFwkState* st = (MidiFwkState*)arg;
+  void* buffer;
+  jack_nframes_t N;
+  jack_nframes_t i;
 
-  /* set each buffer pointer */
-  for (i=0; i<st->nch_input; i++) {
-    st->input_buffers[i] = (float*)(jack_port_get_buffer ( st->input_ports[i], nframes ));
+  /* get receive buffer */
+  buffer = jack_port_get_buffer (st->input_port, nframes);
+  assert (buffer);
+
+  N = jack_midi_get_event_count (buffer);
+  for (i = 0; i < N; ++i) {
+    jack_midi_event_t event;
+    cmd_desc_t cmd;
+    if ( !jack_midi_event_get (&event, buffer, i) ) {
+      if (event.size >= 3) {
+	cmd.monotonic_cnt = st->monotonic_cnt;
+	cmd.type          = event.buffer[0] & 0xf0;
+	cmd.channel       = event.buffer[0] & 0x0f;
+	cmd.param         = event.buffer[1];
+	cmd.value         = event.buffer[2];
+	MBX_post(st->mbx, &cmd, 0);
+      }
+    }
   }
-  for (i=0; i<st->nch_output; i++) {
-    st->output_buffers[i] = (float*)(jack_port_get_buffer ( st->output_ports[i], nframes ));
-  }
-
-  cmd.nframes = nframes;
-  MBX_post(st->mbx, &cmd, 0);
-
+  st->monotonic_cnt += nframes;
   return 0;
 }
 
-void audiofwk_close(AudioFwkState* st)
+void midifwk_close(MidiFwkState* st)
 {
   if (st) {
     if (st->client)       jack_client_close(st->client);
-    if (st->input_ports)  AUDIOFWK_MEM_FREE(st->input_ports);
-    if (st->output_ports) AUDIOFWK_MEM_FREE(st->output_ports);
-    if (st->input_ports)  AUDIOFWK_MEM_FREE(st->input_buffers);
-    if (st->output_ports) AUDIOFWK_MEM_FREE(st->output_buffers);
-    if (st)               AUDIOFWK_MEM_FREE(st);
+    MIDIFWK_MEM_FREE(st);
   }
 }
 
@@ -142,17 +156,16 @@ void audiofwk_close(AudioFwkState* st)
  * decides to disconnect the client.
  */
 void
-audiofwk_shutdown ( void *arg )
+midifwk_shutdown ( void *arg )
 {
-  AudioFwkState* st = (AudioFwkState*)arg;
-  audiofwk_close(st);
+  MidiFwkState* st = (MidiFwkState*)arg;
+  midifwk_close(st);
   exit ( 1 );
 }
 
-AudioFwkState* audiofwk_init(const char * name, int nch_input, int nch_output, int frame_size, AUDIOFWK_PROCESS_CALLBACK callback)
+MidiFwkState* midifwk_init(const char * name, MIDIFWK_PROCESS_CALLBACK callback)
 {
-  int i;
-  AudioFwkState *st = NULL;
+  MidiFwkState *st = NULL;
   const char **ports;
   const char *client_name;
   const char *server_name = NULL;
@@ -160,16 +173,13 @@ AudioFwkState* audiofwk_init(const char * name, int nch_input, int nch_output, i
   jack_status_t status;
 
   /* create instance and store arguments */
-  st = AUDIOFWK_MEM_ALLOC(MEM_SDRAM, AudioFwkState, 1, 4);
-  st->nch_input        = nch_input;
-  st->nch_output       = nch_output;
-  st->frame_size       = frame_size;
+  st = MIDIFWK_MEM_ALLOC(MEM_SDRAM, MidiFwkState, 1, 4);
   st->process_callback = callback;
 
   /* initialize mailbox */
-  st->mbx = MBX_create(sizeof(cmd_desc_t), 1, NULL);
+  st->mbx = MBX_create(sizeof(cmd_desc_t), MBX_LENGTH, NULL);
   /* initialize task */
-  sprintf(st->tskName, "TaskAudioFwk");
+  sprintf(st->tskName, "TaskMidiFwk");
   st->tskDescriptor.h        = &st->tsk;
   st->tskDescriptor.f        = (Fxn)process_task;
   st->tskDescriptor.name     = st->tskName;
@@ -195,44 +205,32 @@ AudioFwkState* audiofwk_init(const char * name, int nch_input, int nch_output, i
     client_name = jack_get_client_name ( st->client );
     fprintf ( stderr, "unique name `%s' assigned\n", client_name );
   }
-  
 
   /* tell the JACK server to call `process()' whenever
      there is work to be done.
   */
   jack_set_process_callback ( st->client, process_callback, st);
   
-  /* tell the JACK server to call `audiofwk_shutdown()' if
+  /* tell the JACK server to call `midifwk_shutdown()' if
      it ever shuts down, either entirely, or if it
      just decides to stop calling us.
   */
-  jack_on_shutdown ( st->client, audiofwk_shutdown, st );
-
-  /* create ports and buffers */
-  st->input_ports    = AUDIOFWK_MEM_ALLOC(MEM_SDRAM, jack_port_t*, st->nch_input,  4);
-  st->output_ports   = AUDIOFWK_MEM_ALLOC(MEM_SDRAM, jack_port_t*, st->nch_output, 4);
-  st->input_buffers  = AUDIOFWK_MEM_ALLOC(MEM_SDRAM, float*,       st->nch_input,  4);
-  st->output_buffers = AUDIOFWK_MEM_ALLOC(MEM_SDRAM, float*,       st->nch_output, 4);
+  jack_on_shutdown ( st->client, midifwk_shutdown, st );
 
   /* Name each ports */
   char port_name[20];
-  for (i=0; i<st->nch_input; i++) {
-    sprintf ( port_name, "input_%d", i + 1 );
-    st->input_ports[i] = jack_port_register ( st->client, port_name, JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0 );
-    if ( st->input_ports[i] == NULL ) {
-      fprintf ( stderr, "no more JACK ports available\n" );
-      goto ERR_END;
-    }
+  sprintf ( port_name, "%s_input", name );
+  st->input_port = jack_port_register ( st->client, port_name, JACK_DEFAULT_MIDI_TYPE, JackPortIsInput, 0 );
+  if ( st->input_port == NULL ) {
+    fprintf ( stderr, "no more JACK ports available\n" );
+    goto ERR_END;
   }
-  for (i=0; i<st->nch_output; i++) {
-    sprintf ( port_name, "output_%d", i + 1 );
-    st->output_ports[i] = jack_port_register ( st->client, port_name, JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0 );
-    if ( st->output_ports[i] == NULL ) {
-      fprintf ( stderr, "no more JACK ports available\n" );
-      goto ERR_END;
-    }
+  sprintf ( port_name, "%s_output", name );
+  st->output_port = jack_port_register ( st->client, port_name, JACK_DEFAULT_MIDI_TYPE, JackPortIsOutput, 0 );
+  if ( st->output_port == NULL ) {
+    fprintf ( stderr, "no more JACK ports available\n" );
+    goto ERR_END;
   }
-  
   
   /* Tell the JACK server that we are ready to roll.  Our
    * process() callback will start running now. */
@@ -241,6 +239,9 @@ AudioFwkState* audiofwk_init(const char * name, int nch_input, int nch_output, i
     fprintf ( stderr, "cannot activate client" );
     goto ERR_END;
   }
+
+  /* !!!Need to be modified below!!! */
+  
 
   /* Connect the ports.  You can't do this before the client is
    * activated, because we can't make connections to clients
@@ -256,10 +257,8 @@ AudioFwkState* audiofwk_init(const char * name, int nch_input, int nch_output, i
     goto ERR_END;
   }
 
-  for (i=0; i<st->nch_input; i++) {
-    if ( jack_connect ( st->client, ports[i], jack_port_name ( st->input_ports[i] ) ) ) {
-      fprintf ( stderr, "cannot connect input ports\n" );
-    }
+  if ( jack_connect ( st->client, ports[0], jack_port_name ( st->input_port ) ) ) {
+    fprintf ( stderr, "cannot connect input ports\n" );
   }
 
   free ( ports );
@@ -270,10 +269,8 @@ AudioFwkState* audiofwk_init(const char * name, int nch_input, int nch_output, i
     goto ERR_END;
   }
 
-  for (i=0; i<st->nch_output; i++) {
-    if ( jack_connect ( st->client, jack_port_name ( st->output_ports[i] ), ports[i] ) ) {
-      fprintf ( stderr, "cannot connect output ports\n" );
-    }
+  if ( jack_connect ( st->client, jack_port_name ( st->output_port ), ports[0] ) ) {
+    fprintf ( stderr, "cannot connect output ports\n" );
   }
 
   free ( ports );
@@ -281,6 +278,6 @@ AudioFwkState* audiofwk_init(const char * name, int nch_input, int nch_output, i
   return st;
   
  ERR_END:
-  if (st) audiofwk_close(st);
+  if (st) midifwk_close(st);
   return NULL;
 }
