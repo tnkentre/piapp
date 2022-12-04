@@ -30,6 +30,7 @@ CSRC	= \
 	tcanalysis.c	\
 	vsb.c	\
 	FBvsb.c	\
+	turntable.c	\
 
 
 # Assembly files

@@ -32,6 +32,8 @@
 #include <math.h>
 #include <signal.h>
 #include <jack/jack.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "RevoRT.h"
 #include "FixedHeap.h"
@@ -77,6 +79,11 @@ process_task(void* arg1)
   static Environment_t env;
   cmd_desc_t cmd;
   AudioFwkState *st = (AudioFwkState*)arg1;
+
+  cpu_set_t cpu_set;
+  CPU_ZERO(&cpu_set);
+  CPU_SET(3, &cpu_set);
+  sched_setaffinity(getpid(), sizeof(cpu_set_t), &cpu_set);
 
   TRACE(LEVEL_INFO, "Task AudioFwk started on CPU %d", sched_getcpu());
   
