@@ -24,10 +24,6 @@
  * @version $LastChangedRevision:$
  * @author Ryo Tanaka
  */
-#ifdef WIN32
-#include "vcwrap.h"
-#endif
-#include <float.h>
 #include "RevoRT.h"
 #include "RevoRT_complex.h"
 #include "Registers.h"
@@ -41,7 +37,7 @@
 #include "RevoFFT.h"
 #include "FBvsb.h"
 
-
+AC4_MODULE;
 
 /*****************
  *    Tool       *
@@ -73,7 +69,7 @@ typedef struct {
 } CH;
 
 struct FBVSB_State_ {
-  AC_HEADER(0,0);  
+  AC4_HEADER;
   /* configuration and history */
   int    fs;
   int    frame_size;
@@ -114,8 +110,8 @@ FBVSB_State *FBvsb_init(const char * name, int nch, int fs, int frame_size, floa
   
   st = MEM_ALLOC(MEM_SDRAM, FBVSB_State, 1, 8);
 
-  AC_ADD(name, CLI_RLSL_FE, st, "FBVSB");
-  AC_ADD_REG(rd, CLI_RLSL_FE);
+  AC4_ADD(name, st, "FBVSB");
+  AC4_ADD_REG(rd);
 
   st->fs            = fs;
   st->frame_size    = frame_size;
@@ -152,7 +148,7 @@ FBVSB_State *FBvsb_init(const char * name, int nch, int fs, int frame_size, floa
   return st;
 }
 
-static void proc_put(FBVSB_State * restrict st, float* src[], float* speed)
+static void proc_put(FBVSB_State * restrict st, float* src[], float* speed, float noteavg)
 {
   int i,m,ch;
   int frame_size    = st->frame_size;
@@ -187,20 +183,24 @@ static void proc_put(FBVSB_State * restrict st, float* src[], float* speed)
 	
 	// FB analysis
 	simplecb_read(chst->tdbuf, fftbuf, fbfilter_size, 0);
-	vec_mul1(fftbuf, st->ha, fbfilter_size);
-	for (m=0; m<fbfilter_size/fft_size-1; m++) {
-	  vec_add1(fftbuf, &fftbuf[(m+1)*fft_size], fft_size);
+	if (noteavg > 0.f) {
+	  vec_mul1(fftbuf, st->ha, fbfilter_size);
+	  for (m=0; m<fbfilter_size/fft_size-1; m++) {
+	    vec_add1(fftbuf, &fftbuf[(m+1)*fft_size], fft_size);
+	  }
+	  RevoFFT_fftr(st->fft, (float*)fdtemp, fftbuf);
+	  vec_cplx_wadd1(chst->hist[cur].X, st->feedbackgain, noteavg, fdtemp, nband);
 	}
-    RevoFFT_fftr(st->fft, (float*)fdtemp, fftbuf);
-	vec_cplx_wadd1(chst->hist[cur].X, st->feedbackgain, 1.f, fdtemp, nband);
 
 	simplecb_read(chst->tdbuf, fftbuf, fbfilter_size, frame_size);
-	vec_mul1(fftbuf, st->ha, fbfilter_size);
-	for (m=0; m<fbfilter_size/fft_size-1; m++) {
-	  vec_add1(fftbuf, &fftbuf[(m+1)*fft_size], fft_size);
+	if (noteavg > 0.f) {
+	  vec_mul1(fftbuf, st->ha, fbfilter_size);
+	  for (m=0; m<fbfilter_size/fft_size-1; m++) {
+	    vec_add1(fftbuf, &fftbuf[(m+1)*fft_size], fft_size);
+	  }
+	  RevoFFT_fftr(st->fft, (float*)fdtemp, fftbuf);
+	  vec_cplx_wadd1(chst->hist[cur].X1, st->feedbackgain, noteavg, fdtemp, nband);
 	}
-	RevoFFT_fftr(st->fft, (float*)fdtemp, fftbuf);
-	vec_cplx_wadd1(chst->hist[cur].X1, st->feedbackgain, 1.f, fdtemp, nband);
 
 	// level
 	vec_spectral_power(sctemp, chst->hist[cur].X, nband);
@@ -279,16 +279,21 @@ static void proc_get(FBVSB_State * restrict st, float* dst[], float* speed)
 }
 
 
-void FBvsb_process(FBVSB_State * restrict st, float* dst[], float* src[], float* speed)
+void FBvsb_process(FBVSB_State * restrict st, float* dst[], float* src[], float* speed, float* note)
 {
   int ch;
   int nch        = st->nch;
   int frame_size = st->frame_size;
+  float noteavg = vec_sum(note, frame_size) * RECIP((float)frame_size);
   
   proc_get(st, dst, speed);
   for (ch=0; ch<nch; ch++) {
+#if 0
     vec_wadd1(dst[ch], st->loopgain, 1.f, src[ch], frame_size);
+#else
+    vec_mul1s(dst[ch], st->loopgain, frame_size);
+#endif
   }
 
-  proc_put(st, src, speed);
+  proc_put(st, src, speed, noteavg);
 }

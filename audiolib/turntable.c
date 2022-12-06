@@ -36,9 +36,6 @@
 /*
  * TurnTable functions
  */
-#define NTDVSB       (2)
-#define NFDVSB       (2)
-
 AC4_MODULE;
 
 /* Turntable State */
@@ -49,22 +46,25 @@ struct TurntableState_ {
   int flags;
   int fs;
   int frame_size;
+  int ntdvsb;
+  int nfdvsb;
 
   /* Parameter */
-  int note_tdvsb[NTDVSB];
-  int note_fdvsb[NFDVSB];
+  float *note_tdvsb;
+  float *note_fdvsb;
+  float gain_input;
 
   /* Audio Components */
   TCANALYSIS_State * tcana;
-  VSB_State        * tdvsb[NTDVSB];
-  FBVSB_State      * fbvsb[NFDVSB];
+  VSB_State        ** tdvsb;
+  FBVSB_State      ** fdvsb;
 } ;
 
 static const RegDef_t rd[] = {
   AC_REGDEF(flags,           CLI_ACXPTM,   TurntableState, "Control flags"),
 };
 
-TurntableState* Turntable_init(const char *name, int fs, int frame_size)
+TurntableState* Turntable_init(const char *name, int fs, int frame_size, int ntdvsb, int nfdvsb)
 {
   int i;
   TurntableState* st;
@@ -78,21 +78,29 @@ TurntableState* Turntable_init(const char *name, int fs, int frame_size)
 
   st->fs         = fs;
   st->frame_size = frame_size;
+  st->ntdvsb     = ntdvsb;
+  st->nfdvsb     = nfdvsb;
 
   sprintf(subname, "%s_tcana",name);
   st->tcana = tcanalysis_init(subname, st->fs, 1000.f);
 
-  for (i=0; i<NTDVSB; i++) {
-    sprintf(subname, "%s_tdvsb%d",name, i);    
-    st->tdvsb[i] = vsb_init(subname, (int)(st->fs * sec));
-  }
-  for (i=0; i<NFDVSB; i++) {
-    sprintf(subname, "%s_fdvsb%d",name, i);    
-    st->fbvsb[i] = FBvsb_init(subname, 2, st->fs, st->frame_size, sec);
+  if (st->ntdvsb) {
+    st->note_tdvsb = MEM_ALLOC(MEM_SDRAM, float,      st->ntdvsb, 4);
+    st->tdvsb      = MEM_ALLOC(MEM_SDRAM, VSB_State*, st->ntdvsb, 4);
+    for (i=0; i<st->ntdvsb; i++) {
+      sprintf(subname, "%s_tdvsb%d",name, i);    
+      st->tdvsb[i] = vsb_init(subname, (int)(st->fs * sec));
+    }
   }
 
-  st->note_tdvsb[0] = 1;
-  //  note_fdvsb[NFDVSB];
+  if (st->nfdvsb) {
+    st->note_fdvsb = MEM_ALLOC(MEM_SDRAM, float,       st->nfdvsb, 4);
+    st->fdvsb      = MEM_ALLOC(MEM_SDRAM, FBVSB_State*, st->nfdvsb, 4);
+    for (i=0; i<st->nfdvsb; i++) {
+      sprintf(subname, "%s_fdvsb%d",name, i);    
+      st->fdvsb[i] = FBvsb_init(subname, 2, st->fs, st->frame_size, sec);
+    }
+  }
   
   return st;
 }
@@ -103,17 +111,26 @@ void Turntable_proc(TurntableState* st, float* out[], float* in[], float* tc[])
   int frame_size = st->frame_size;
 
   VARDECLR(float, speed);
+  VARDECLR(float, note);
+  VARDECLR(float*, in_adj);
   VARDECLR(float*, zeros);
   VARDECLR(float*, temp);
   SAVE_STACK;
   ALLOC(speed, frame_size, float);
-  ALLOC(zeros, 2, float*);
-  ALLOC(temp,  2, float*);
+  ALLOC(note,  frame_size, float);
+  ALLOC(in_adj, 2, float*);
+  ALLOC(zeros,  2, float*);
+  ALLOC(temp,   2, float*);
+  ALLOC(in_adj[0],  frame_size, float);
+  ALLOC(in_adj[1],  frame_size, float);
   ALLOC(zeros[0],  frame_size, float);
   ALLOC(zeros[1],  frame_size, float);
   ALLOC(temp[0],  frame_size, float);
   ALLOC(temp[1],  frame_size, float);
 
+  vec_muls(in_adj[0], in[0], st->gain_input, frame_size);
+  vec_muls(in_adj[1], in[1], st->gain_input, frame_size);
+  
   vec_set(zeros[0], 0.f, frame_size);
   vec_set(zeros[1], 0.f, frame_size);
 
@@ -124,23 +141,44 @@ void Turntable_proc(TurntableState* st, float* out[], float* in[], float* tc[])
   COPY(out[1], zeros[1], frame_size);
 
   /* TDVSB */
-  for (i=0; i<NTDVSB; i++){
+  for (i=0; i<st->ntdvsb; i++){
     if (st->note_tdvsb[i])
-      vsb_process(st->tdvsb[i], temp, in, speed, frame_size);
+      vec_set(note, 1.f, frame_size);
     else
-      vsb_process(st->tdvsb[i], temp, zeros, speed, frame_size);
+      vec_set(note, 0.f, frame_size);
+    vsb_process(st->tdvsb[i], temp, in_adj, speed, note, frame_size);
     vec_add1(out[0], temp[0], frame_size);
     vec_add1(out[1], temp[1], frame_size);
   }
 
   /* FDVSB */
-  for (i=0; i<NFDVSB; i++){
+  for (i=0; i<st->nfdvsb; i++){
     if (st->note_fdvsb[i])
-      FBvsb_process(st->fbvsb[i], temp, in, speed);
+      vec_set(note, 1.f, frame_size);
     else
-      FBvsb_process(st->fbvsb[i], temp, zeros, speed);
+      vec_set(note, 0.f, frame_size);
+    FBvsb_process(st->fdvsb[i], temp, in_adj, speed, note);
     vec_add1(out[0], temp[0], frame_size);
     vec_add1(out[1], temp[1], frame_size);
   }
+
+  vec_add1(out[0], in_adj[0], frame_size);
+  vec_add1(out[1], in_adj[1], frame_size);
+
   RESTORE_STACK;
+}
+
+void Turntable_set_note_td(TurntableState* st, int id, float note)
+{
+  if (id < st->ntdvsb)
+    st->note_tdvsb[id] = note;
+}
+void Turntable_set_note_fd(TurntableState* st, int id, float note)
+{
+  if (id < st->nfdvsb)
+    st->note_fdvsb[id] = note;
+}
+void Turntable_set_gain_in(TurntableState* st, float gain)
+{
+  st->gain_input = gain;
 }

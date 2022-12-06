@@ -69,43 +69,24 @@ typedef enum {
   CH_OUT_NUM
 } CH_OUT;
 
-#if 0
 typedef struct {
   uint8_t note;
   int turntableid;
-  int lenid;
-  int vsbid;
+  int isfdvsb;
+  int id;
 } NOTE_ALLOCATION;
 
 const NOTE_ALLOCATION note_alloc[] = {
-  /* note tt    lenid       vsbid*/
-  //  {    48, 0, LENID_16BEAT,   0},
-  //  {    49, 0, LENID_16BEAT,   1},
-  //  {    50, 0, LENID_8BEAT,    0},
-  //  {    51, 0, LENID_8BEAT,    1},
-  //  {    52, 0, LENID_4BEAT,    0},
-  //  {    53, 0, LENID_2BEAT,    0},
-  //  {    54, 0, LENID_2BEAT,    1},
-  {    55, 0, LENID_1BAR,     0},
-  {    56, 0, LENID_1BAR,     1},
-  {    57, 0, LENID_2BAR,     0},
-  {    58, 0, LENID_2BAR,     1},
-  //  {    59, 0, LENID_4BAR,     0},
-  //  {    60, 0, LENID_16BEAT,   0},
-  //  {    61, 0, LENID_16BEAT,   1},
-  //  {    62, 0, LENID_8BEAT,    0},
-  //  {    63, 0, LENID_8BEAT,    1},
-  //  {    64, 0, LENID_4BEAT,    0},
-  //  {    65, 0, LENID_2BEAT,    0},
-  //  {    66, 0, LENID_2BEAT,    1},
-  {    67, 0, LENID_1BAR,     0},
-  {    68, 0, LENID_1BAR,     1},
-  {    69, 0, LENID_2BAR,     0},
-  {    70, 0, LENID_2BAR,     1},
-  //  {    71, 0, LENID_4BAR,     0},
+  /* note tt fd id*/
+  {    48, 0, 0, 0},
+  {    49, 0, 1, 0},
+  {    50, 0, 0, 1},
+  {    51, 0, 1, 1},
+  {    60, 1, 0, 0},
+  {    61, 1, 1, 0},
+  {    62, 1, 0, 1},
+  {    63, 1, 1, 1},
 };
-
-#endif
 
 typedef struct {
   /* Configuration */
@@ -204,22 +185,41 @@ static void AudioProc(float * out[], float* in[])
 
 void MidiProc(uint64_t time, uint8_t type, uint8_t channel, uint8_t param, uint8_t value)
 {
-#if 0
   int i;
   AudioProcState* st = audioproc_st;
+  /* note */
   if (type==0x90 || type==0x80) {
     /* find ids */
     for (i=0; i<NBELEM(note_alloc); i++) {
       if (note_alloc[i].note == param) {
-	if (type==0x90)
-	  st->note_state[note_alloc[i].turntableid][note_alloc[i].lenid][note_alloc[i].vsbid] = 1;
-	else
-	  st->note_state[note_alloc[i].turntableid][note_alloc[i].lenid][note_alloc[i].vsbid] = 0;
+	if (type==0x90) {
+	  if (!note_alloc[i].isfdvsb)
+	    Turntable_set_note_td(st->turntable[note_alloc[i].turntableid], note_alloc[i].id, 1.f);
+	  else
+	    Turntable_set_note_fd(st->turntable[note_alloc[i].turntableid], note_alloc[i].id, 1.f);
+	}
+	else {
+	  if (!note_alloc[i].isfdvsb)
+	    Turntable_set_note_td(st->turntable[note_alloc[i].turntableid], note_alloc[i].id, 0.f);
+	  else
+	    Turntable_set_note_fd(st->turntable[note_alloc[i].turntableid], note_alloc[i].id, 0.f);
+	}
 	break;
       }
     }
   }
-#endif
+  /* control */
+  else if (type==0xB0) {
+    switch (param) {
+    case 1:
+      /* mod */
+      Turntable_set_gain_in(st->turntable[0], (float)value * RECIP(127.f));
+      Turntable_set_gain_in(st->turntable[1], (float)value * RECIP(127.f));
+      break;
+    default:
+      break;
+    }
+  }
 #if 1
   printf("MIDI:%llu: type=0x%02X, channel=%d, param=%d, value=%d\n",
 	 time, type, channel, param, value);
@@ -241,7 +241,7 @@ void AudioProc_init(void)
 
   for (i=0; i<NTURNTABLE; i++) {
     sprintf(name, "tt%d",i);
-    st->turntable[i] = Turntable_init(name, FS, FRAME_SIZE);
+    st->turntable[i] = Turntable_init(name, FS, FRAME_SIZE, 2, 2);
   }
 
   /* Create task to audio process */

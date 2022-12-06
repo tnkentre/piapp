@@ -24,10 +24,6 @@
  * @version $LastChangedRevision:$
  * @author Ryo Tanaka
  */
-#ifdef WIN32
-#include "vcwrap.h"
-#endif
-#include <float.h>
 #include "RevoRT.h"
 #include "RevoRT_complex.h"
 #include "Registers.h"
@@ -36,8 +32,10 @@
 #include "cli.h"
 #include "vsb.h"
 
+AC4_MODULE;
+
 struct VSB_State_ {
-  AC_HEADER(0,0);  
+  AC4_HEADER;
   /* configuration and history */
   int    size;
   float* buf[2];
@@ -62,8 +60,8 @@ VSB_State *vsb_init(const char * name, int size)
   VSB_State* st;
   st = MEM_ALLOC(MEM_SDRAM, VSB_State, 1, 8);
 
-  AC_ADD(name, CLI_RLSL_FE, st, "VSB");
-  AC_ADD_REG(rd, CLI_RLSL_FE);
+  AC4_ADD(name, st, "VSB");
+  AC4_ADD_REG(rd);
 
   st->size = size;
   st->buf[0] = MEM_ALLOC(MEM_SDRAM, float, st->size, 8);
@@ -82,7 +80,7 @@ VSB_State *vsb_init(const char * name, int size)
   return st;
 }
 
-void vsb_process(VSB_State * restrict st, float* dst[], float* src[], float* speed, int len)
+void vsb_process(VSB_State * restrict st, float* dst[], float* src[], float* speed, float* note, int len)
 {
   int   i, j;
   int   ipos_next;
@@ -116,40 +114,49 @@ void vsb_process(VSB_State * restrict st, float* dst[], float* src[], float* spe
     }
 
     // get recorded data
+#if 0
     out[0] = src[0][i] + st->loopgain * ((1.0f - fpos_next) * st->buf[0][ipos_next] + fpos_next * st->buf[0][ipos_next+1<st->size?ipos_next+1:0]);
     out[1] = src[1][i] + st->loopgain * ((1.0f - fpos_next) * st->buf[1][ipos_next] + fpos_next * st->buf[1][ipos_next+1<st->size?ipos_next+1:0]);
+#else
+    out[0] = st->loopgain * ((1.0f - fpos_next) * st->buf[0][ipos_next] + fpos_next * st->buf[0][ipos_next+1<st->size?ipos_next+1:0]);
+    out[1] = st->loopgain * ((1.0f - fpos_next) * st->buf[1][ipos_next] + fpos_next * st->buf[1][ipos_next+1<st->size?ipos_next+1:0]);
+#endif
 
     // write stock
     if (st->ipos != ipos_next) {
       if (speed[i] > 0.0f) {
 	ipos_nexttmp = ipos_next > st->ipos ? ipos_next : ipos_next + st->size;
-	norm = 1.0f / (ipos_nexttmp - st->ipos + fpos_next - st->fpos);
-	for (j=st->ipos+1; j<ipos_nexttmp; j++) {
-	  st->buf[0][j<st->size?j:j-st->size] *= st->feedbackgain;
-	  st->buf[1][j<st->size?j:j-st->size] *= st->feedbackgain;
-	  st->buf[0][j<st->size?j:j-st->size] += norm * ((j - st->ipos - st->fpos) * src[0][i] + (ipos_nexttmp - j + fpos_next) * st->rec[0]);
-	  st->buf[1][j<st->size?j:j-st->size] += norm * ((j - st->ipos - st->fpos) * src[1][i] + (ipos_nexttmp - j + fpos_next) * st->rec[1]);
+	if (note[i] > 0.0f) {
+	  norm = 1.0f / (ipos_nexttmp - st->ipos + fpos_next - st->fpos);
+	  for (j=st->ipos+1; j<ipos_nexttmp; j++) {
+	    st->buf[0][j<st->size?j:j-st->size] *= st->feedbackgain;
+	    st->buf[1][j<st->size?j:j-st->size] *= st->feedbackgain;
+	    st->buf[0][j<st->size?j:j-st->size] += norm * ((j - st->ipos - st->fpos) * src[0][i] * note[i] + (ipos_nexttmp - j + fpos_next) * st->rec[0]);
+	    st->buf[1][j<st->size?j:j-st->size] += norm * ((j - st->ipos - st->fpos) * src[1][i] * note[i] + (ipos_nexttmp - j + fpos_next) * st->rec[1]);
+	  }
+	  st->writestock[0] = norm * ((ipos_nexttmp - st->ipos - st->fpos) * src[0][i] * note[i] + fpos_next * st->rec[0]);
+	  st->writestock[1] = norm * ((ipos_nexttmp - st->ipos - st->fpos) * src[1][i] * note[i] + fpos_next * st->rec[1]);
 	}
-	st->writestock[0] = norm * ((ipos_nexttmp - st->ipos - st->fpos) * src[0][i] + fpos_next * st->rec[0]);
-	st->writestock[1] = norm * ((ipos_nexttmp - st->ipos - st->fpos) * src[1][i] + fpos_next * st->rec[1]);
 	st->idxstock = ipos_nexttmp < st->size ? ipos_nexttmp : ipos_nexttmp - st->size;
       }
       else if (speed[i] < 0.0f) {
 	ipos_curtmp = ipos_next < st->ipos ? st->ipos : st->ipos + st->size;
-	norm = 1.0f / (ipos_curtmp - ipos_next + st->fpos - fpos_next);
-	for (j=ipos_curtmp; j>ipos_next+1; j--) {
-	  st->buf[0][j<st->size?j:j-st->size] *= st->feedbackgain;
-	  st->buf[1][j<st->size?j:j-st->size] *= st->feedbackgain;
-	  st->buf[0][j<st->size?j:j-st->size] += norm * ((ipos_curtmp - j + st->fpos) * src[0][i] + (j - ipos_next - fpos_next) * st->rec[0]);
-	  st->buf[1][j<st->size?j:j-st->size] += norm * ((ipos_curtmp - j + st->fpos) * src[1][i] + (j - ipos_next - fpos_next) * st->rec[1]);
+	if (note[i] > 0.0f) {
+	  norm = 1.0f / (ipos_curtmp - ipos_next + st->fpos - fpos_next);
+	  for (j=ipos_curtmp; j>ipos_next+1; j--) {
+	    st->buf[0][j<st->size?j:j-st->size] *= st->feedbackgain;
+	    st->buf[1][j<st->size?j:j-st->size] *= st->feedbackgain;
+	    st->buf[0][j<st->size?j:j-st->size] += norm * ((ipos_curtmp - j + st->fpos) * src[0][i] * note[i] + (j - ipos_next - fpos_next) * st->rec[0]);
+	    st->buf[1][j<st->size?j:j-st->size] += norm * ((ipos_curtmp - j + st->fpos) * src[1][i] * note[i] + (j - ipos_next - fpos_next) * st->rec[1]);
+	  }
+	  st->writestock[0] = norm * ((ipos_curtmp - ipos_next - 1 + st->fpos) * src[0][i] * note[i] + (1.0f - fpos_next) * st->rec[0]);
+	  st->writestock[1] = norm * ((ipos_curtmp - ipos_next - 1 + st->fpos) * src[1][i] * note[i] + (1.0f - fpos_next) * st->rec[1]);
 	}
-	st->writestock[0] = norm * ((ipos_curtmp - ipos_next - 1 + st->fpos) * src[0][i] + (1.0f - fpos_next) * st->rec[0]);
-	st->writestock[1] = norm * ((ipos_curtmp - ipos_next - 1 + st->fpos) * src[1][i] + (1.0f - fpos_next) * st->rec[1]);
 	st->idxstock = ipos_next+1 < st->size ? ipos_next+1 : ipos_next+1-st->size;
       }
     }
-    st->rec[0] = src[0][i];
-    st->rec[1] = src[1][i];
+    st->rec[0] = src[0][i] * note[i];
+    st->rec[1] = src[1][i] * note[i];
 
     // prepare for next
     st->ipos = ipos_next;
