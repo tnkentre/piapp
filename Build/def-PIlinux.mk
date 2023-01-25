@@ -22,8 +22,8 @@
 # version: $LastChangedRevision: 11780 $
 # author: zkhan
 
-export AC := $(SVNROOT)/AudioComponents/trunk
-#export AC := $(SVNROOT)/audiocomponents
+#export AC := $(SVNROOT)/AudioComponents/trunk
+export AC := $(SVNROOT)/AudioComponents
 
 # Location of cross tools 
 export TOOL_PATH			 := \

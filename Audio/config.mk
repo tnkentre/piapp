@@ -25,8 +25,8 @@
 # Prefix for this module
 export MODULE_PREFIX = AudioServer
 
-export AC := $(SVNROOT)/AudioComponents/trunk
-#export AC := $(SVNROOT)/audiocomponents
+#export AC := $(SVNROOT)/AudioComponents/trunk
+export AC := $(SVNROOT)/AudioComponents
 
 # Type of output this module will produce: archive (.a), dynamic (.so), or exe
 export MODULE_OUTPUT = exe
