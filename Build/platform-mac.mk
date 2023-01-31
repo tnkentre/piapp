@@ -19,30 +19,19 @@
 #
 #*******************************************************************************
 
-# version: $LastChangedRevision: 13335 $
+# version: $LastChangedRevision: 6078 $
 # author: zkhan
 
-# Host commands for aiding in make, serves as a host dependency too 
-export SED=sed
-export LEX=flex
-export YACC=bison
-ifeq ($(PLATFORM),mac)
-export COPY=cp
-else
-export COPY=cp -ard
-endif
-export REMOVE=rm -rf
-export MOVE=mv -f
-export PRINT=cat
-export MAKE=make
-export MKDIR=mkdir
-export CHDIR=cd
-export RMDIR=rmdir
-export PRINTSCR=echo
-ifeq ($(PLATFORM),mac)
-export DEP=clang -M
-else
-export DEP=cpp -M
-endif
-export DATE=date
-export SVNVERS=svn info
+-include $(BASE_DIR)/Build/def-$(PLATFORM).mk
+-include $(BASE_DIR)/Build/host.mk
+
+
+# Build all platform stuff
+.PHONY: all
+all: 
+	$(ECHO) No platform build for PC
+
+# Clean all platform stuff
+.PHONY: clean
+clean: 
+	$(ECHO) No platform build for PC

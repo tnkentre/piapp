@@ -19,30 +19,18 @@
 #
 #*******************************************************************************
 
-# version: $LastChangedRevision: 13335 $
+# version: $LastChangedRevision: 9007 $
 # author: zkhan
 
-# Host commands for aiding in make, serves as a host dependency too 
-export SED=sed
-export LEX=flex
-export YACC=bison
-ifeq ($(PLATFORM),mac)
-export COPY=cp
-else
-export COPY=cp -ard
-endif
-export REMOVE=rm -rf
-export MOVE=mv -f
-export PRINT=cat
-export MAKE=make
-export MKDIR=mkdir
-export CHDIR=cd
-export RMDIR=rmdir
-export PRINTSCR=echo
-ifeq ($(PLATFORM),mac)
-export DEP=clang -M
-else
-export DEP=cpp -M
-endif
-export DATE=date
-export SVNVERS=svn info
+
+.PHONY: preprocess
+preprocess:
+	@$(PRINTSCR) ---- Generating version info for module $(MODULE) ---- 
+	@$(PRINTSCR) char __$(strip $(MODULE_PREFIX))_version[]= \
+		\"Revolabs $(MODULE_PREFIX) $(MODULE_VERSION) $(COMMON_VERSION)\"\;\
+		> __version_info_$(PLATFORM).c
+	@$(CC) $(TOOLS_CFLAGS) $(ALL_CFLAGS) -c __version_info_$(PLATFORM).c
+
+.PHONY: preprocess_clean
+preprocess_clean:
+	@$(REMOVE) __version_info_$(PLATFORM).c __version_info_$(PLATFORM).o

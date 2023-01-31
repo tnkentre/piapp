@@ -88,10 +88,14 @@ DEFAULT_INC = -I$(INCLUDE_DIR)
 
 %_$(PLATFORM)_c.o:%.c
 	@$(PRINTSCR) "CC    [.o]  $*.c"
-	@$(CC) $(TOOLS_CFLAGS) $(ALL_CFLAGS) $(MODULE_TOOLS_CFLAGS) $(MODULE_CFLAGS) $(DEFAULT_INC) -c $*.c
+	@$(CC)  $(TOOLS_CFLAGS) $(ALL_CFLAGS) $(MODULE_TOOLS_CFLAGS) $(MODULE_CFLAGS) $(DEFAULT_INC) -c $*.c
 	@$(MOVE) $*.o $*_$(PLATFORM)_c.o
 	@$(PRINTSCR) "CPP   [.d]  $*.c"
-	@$(DEP) $(ALL_CFLAGS) $(MODULE_CFLAGS) $(DEFAULT_INC) -x c $*.c $*.d
+ifeq ($(PLATFORM), omapdsp)
+	@$(DEP) -ppd=$*.d $(TOOLS_CFLAGS) $(ALL_CFLAGS) $(MODULE_TOOLS_CFLAGS) $(MODULE_CFLAGS) $(DEFAULT_INC) $*.c
+else
+	@$(DEP) $(TOOLS_CFLAGS) $(ALL_CFLAGS) $(MODULE_TOOLS_CFLAGS) $(MODULE_CFLAGS) $(DEFAULT_INC) $*.c > $*.d
+endif
 	@$(MOVE) $*.d $*.d.tmp
 	@$(SED) -e 's|.*:|$*_$(PLATFORM)_c.o:|' < $*.d.tmp > $*.d
 	@$(SED) -e 's/.*://' -e 's/\\$$//' < $*.d.tmp | fmt -1 | \
@@ -109,7 +113,11 @@ DEFAULT_INC = -I$(INCLUDE_DIR)
 	@$(CXX) $(TOOLS_CXXFLAGS) $(ALL_CFLAGS) $(MODULE_TOOLS_CXXFLAGS) $(MODULE_CXXFLAGS) $(DEFAULT_INC) -c $*.cpp
 	@$(MOVE) $*.o $*_$(PLATFORM)_cxx.o
 	@$(PRINTSCR) "CPP   [.d]  $*.cpp"
-	@$(DEP) $(ALL_CFLAGS) $(MODULE_CFLAGS) $(DEFAULT_INC) -x c++ $*.cpp $*.d
+ifeq ($(PLATFORM), omapdsp)
+	@$(DEP) -ppd=$*.d $(TOOLS_CXXFLAGS) $(ALL_CFLAGS) $(MODULE_TOOLS_CXXFLAGS) $(MODULE_CXXFLAGS) $(DEFAULT_INC) $*.cpp
+else
+	@$(DEP) $(TOOLS_CXXFLAGS) $(ALL_CFLAGS) $(MODULE_TOOLS_CXXFLAGS) $(MODULE_CXXFLAGS) $(DEFAULT_INC) $*.cpp > $*.d
+endif
 	@$(MOVE) $*.d $*.d.tmp
 	@$(SED) -e 's|.*:|$*_$(PLATFORM)_cxx.o:|' < $*.d.tmp > $*.d
 	@$(SED) -e 's/.*://' -e 's/\\$$//' < $*.d.tmp | fmt -1 | \

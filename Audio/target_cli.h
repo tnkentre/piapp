@@ -83,9 +83,5 @@ extern void AdjustSpeakerCallVolume(rv_uint8 uAction, rv_uint8 uiHostIndex);
 extern void SendBundleInfoToHost(unsigned char len, char *pBundle);
 extern void SendIpInfoToHost(char *pIp);
 
-extern void openFlashFile(const char *name);
-extern void writeToFlashFile(const char *command);
-extern void writeDataToFlashFile(const unsigned char *data, int len);
-extern void closeFlashFile();
 
 #endif

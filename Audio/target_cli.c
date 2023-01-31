@@ -25,8 +25,9 @@
  * @author Pascal Cleve
  */
 
-#include "target_cli.h"
+#include "fileio.h"
 #include "FixedHeap.h"
+#include "target_cli.h"
 
 const ctl_bit_t target_ctl_bit[] = {
   {"ctl_toneusbout",    CTL_TONEUSBOUT, 	"Sends a tone to the USB out"},
@@ -132,20 +133,3 @@ int cli_parseTargetCommand(const SymbolTableEntry *ste,
     }
   }
 }
-
-void openFlashFile(const char *name)
-{
-}
-
-void writeToFlashFile(const char *command)
-{
-}
-
-void writeDataToFlashFile(const unsigned char *data, int len)
-{
-}
-
-void closeFlashFile()
-{
-}
-

@@ -19,30 +19,14 @@
 #
 #*******************************************************************************
 
-# version: $LastChangedRevision: 13335 $
+# version: $LastChangedRevision: 13779 $
 # author: zkhan
 
-# Host commands for aiding in make, serves as a host dependency too 
-export SED=sed
-export LEX=flex
-export YACC=bison
-ifeq ($(PLATFORM),mac)
-export COPY=cp
-else
-export COPY=cp -ard
-endif
-export REMOVE=rm -rf
-export MOVE=mv -f
-export PRINT=cat
-export MAKE=make
-export MKDIR=mkdir
-export CHDIR=cd
-export RMDIR=rmdir
-export PRINTSCR=echo
-ifeq ($(PLATFORM),mac)
-export DEP=clang -M
-else
-export DEP=cpp -M
-endif
-export DATE=date
-export SVNVERS=svn info
+# List of module to make (note that order is important) 
+export MODULES	=	\
+	audiolib	\
+	Audio	\
+	Tools	\
+
+
+

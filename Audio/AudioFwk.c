@@ -80,12 +80,14 @@ process_task(void* arg1)
   cmd_desc_t cmd;
   AudioFwkState *st = (AudioFwkState*)arg1;
 
+#if defined(PIlinux)
   cpu_set_t cpu_set;
   CPU_ZERO(&cpu_set);
   CPU_SET(3, &cpu_set);
   sched_setaffinity(getpid(), sizeof(cpu_set_t), &cpu_set);
 
   TRACE(LEVEL_INFO, "Task AudioFwk started on CPU %d", sched_getcpu());
+#endif
   
   InitEnvironment(&env, 128*1024, __func__);
 

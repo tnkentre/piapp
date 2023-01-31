@@ -81,7 +81,9 @@ process_task(void* arg1)
   static Environment_t env;
   MidiFwkState *st = (MidiFwkState*)arg1;
 
+#if defined(PIlinux)
   TRACE(LEVEL_INFO, "Task MidiFwk started on CPU %d", sched_getcpu());
+#endif
   
   InitEnvironment(&env, 128*1024, __func__);
 

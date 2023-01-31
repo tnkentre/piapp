@@ -135,12 +135,14 @@ process_task(void* arg1)
   AudioProcState *st = audioproc_st;
   int ch = (int)arg1;
 
+#if defined(PIlinux)
   cpu_set_t cpu_set;
   CPU_ZERO(&cpu_set);
   CPU_SET(ch, &cpu_set);
   sched_setaffinity(getpid(), sizeof(cpu_set_t), &cpu_set);
   
   TRACE(LEVEL_INFO, "Task AudioProc%d started on CPU %d", ch, sched_getcpu());
+#endif
   
   InitEnvironment(&st->env[ch], 128*1024, __func__);
 

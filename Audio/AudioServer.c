@@ -7,7 +7,7 @@
 #include <sched.h>
 #include <signal.h>
 
-#include <wiringPi.h>
+//#include <wiringPi.h>
 
 #include "RevoRT.h"
 #include "global.h"
@@ -91,7 +91,9 @@ int main()
     return -1;
   }
   
+#if defined(PIlinux)
   printf("Audio Server ON on CPU %d.\n", sched_getcpu());
+#endif
 
 #if USE_AUDIOPROC == 0
   wiringPiSetup();

@@ -48,6 +48,7 @@ export MODULE_CFLAGS += \
 
 export MODULE_LDFLAGS += \
 
+ifeq ($(PLATFORM),PIlinux)
 export MODULE_EXTERN_LIBS := \
 	$(SVNROOT)/piapp/Build.$(PLATFORM)/audiolib2.a \
 	$(addprefix $(AC)/Build.$(PLATFORM)/, \
@@ -55,6 +56,17 @@ export MODULE_EXTERN_LIBS := \
 	aec640.a \
 	) \
 	$(AC)/audiolib/DSP/c674x/dsplib_v12/libc6xpilinux.a \
+
+else ifeq ($(PLATFORM),mac)
+export MODULE_EXTERN_LIBS := \
+	$(SVNROOT)/piapp/Build.$(PLATFORM)/audiolib2.a \
+	$(addprefix $(AC)/Build.$(PLATFORM)/, \
+	audiolib.a \
+	aec640.a \
+	) \
+	$(AC)/audiolib/DSP/c674x/dsplib_v12/libc6xmac.a \
+
+endif
 
 export MODULE_PREPROCESS_FILE := 
 
