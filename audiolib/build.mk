@@ -32,7 +32,6 @@ CSRC	= \
 	FBvsb.c	\
 	turntable.c	\
 
-
 # Assembly files
 SSRC	= \
 	$(MODULE_PREPROCESS_FILE:.tcf=.asm) \

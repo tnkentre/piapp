@@ -54,6 +54,8 @@ struct TurntableState_ {
   float *note_fdvsb;
   float gain_input;
 
+  float testprm;
+
   /* Audio Components */
   TCANALYSIS_State * tcana;
   VSB_State        ** tdvsb;
@@ -62,6 +64,7 @@ struct TurntableState_ {
 
 static const RegDef_t rd[] = {
   AC_REGDEF(flags,           CLI_ACXPTM,   TurntableState, "Control flags"),
+  AC_REGDEF(testprm,         CLI_ACFPTM,   TurntableState, "Test parameter"),
 };
 
 TurntableState* Turntable_init(const char *name, int fs, int frame_size, int ntdvsb, int nfdvsb)

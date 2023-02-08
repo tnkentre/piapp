@@ -44,6 +44,8 @@ struct VSB_State_ {
   float  rec[2];
   float  writestock[2];
   int    idxstock;
+  float*  position;
+  int     position_len;
 
   /* parameters */
   float loopgain;
@@ -53,6 +55,7 @@ struct VSB_State_ {
 static const RegDef_t rd[] = {
   AC_REGDEF(loopgain,     CLI_ACFPTM,   VSB_State, "Loopback gain"),
   AC_REGDEF(feedbackgain, CLI_ACFPTM,   VSB_State, "Feedback gain"),
+  AC_REGADEF(position, position_len, CLI_ACFPTMA,   VSB_State, "position"),
 };
 
 VSB_State *vsb_init(const char * name, int size)
@@ -76,6 +79,9 @@ VSB_State *vsb_init(const char * name, int size)
   st->writestock[0] = 0.0f;
   st->writestock[1] = 0.0f;
   st->idxstock      = 0;
+
+  st->position_len = 2;
+  st->position = MEM_ALLOC(MEM_SDRAM, float, st->position_len, 8);
 
   return st;
 }
@@ -165,4 +171,6 @@ void vsb_process(VSB_State * restrict st, float* dst[], float* src[], float* spe
     dst[0][i] = out[0];
     dst[1][i] = out[1];
   }
+  st->position[0] = 10.f * RECIP(30.48f);
+  st->position[1] = (st->ipos + st->fpos) / st->size;
 }

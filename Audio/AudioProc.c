@@ -39,6 +39,7 @@
 #include "AudioFwk.h"
 #include "MidiFwk.h"
 #include "turntable.h"
+#include "oscac.h"
 #include "AudioProc.h"
 
 /*
@@ -105,6 +106,9 @@ typedef struct {
   /* MIDI FWK (JACK interface) */
   MidiFwkState* midifwk;
 
+  /* OSCAC FWK */
+  OSCAC_State* oscac;
+
   // Task
   Environment_t env[NTURNTABLE];
   char  tskName[NTURNTABLE][32];
@@ -133,7 +137,7 @@ process_task(void* arg1)
 {
   cmd_desc_t cmd;
   AudioProcState *st = audioproc_st;
-  int ch = (int)arg1;
+  int64_t ch = (int64_t)arg1;
 
 #if defined(PIlinux)
   cpu_set_t cpu_set;
@@ -157,7 +161,6 @@ process_task(void* arg1)
     SEM_postBinary(st->sem[ch]);
   } while(1);
 }
-
 
 static void AudioProc(float * out[], float* in[])
 {
@@ -246,6 +249,14 @@ void AudioProc_init(void)
     st->turntable[i] = Turntable_init(name, FS, FRAME_SIZE, 2, 2);
   }
 
+  /* OSC */
+//  st->oscac = oscac_init("OSCAC", OSCAC_INITMODE_FULLACCESS);
+  st->oscac = oscac_init("OSCAC", OSCAC_INITMODE_FULLACCESS);
+  oscac_start(st->oscac);
+  oscac_add_acreg(st->oscac, "tt0_tdvsb0", "position");
+  oscac_add_acreg(st->oscac, "tt1_tdvsb0", "position");
+  oscac_set_moninterval(st->oscac, 20);
+
   /* Create task to audio process */
   for (i=0; i<NTURNTABLE; i++) {
     st->mbx[i] = MBX_create(sizeof(cmd_desc_t), 1, NULL);
@@ -256,7 +267,7 @@ void AudioProc_init(void)
     st->tskDescriptor[i].name     = st->tskName[i];
     st->tskDescriptor[i].stack    = 5*1024;
     st->tskDescriptor[i].priority = 10;
-    st->tskDescriptor[i].arg1     = (void*)i;
+    st->tskDescriptor[i].arg1     = (void*)((int64_t)i);
     Task_init(&st->tskDescriptor[i], 1);
   }
 
@@ -271,4 +282,5 @@ void AudioProc_close(void)
   AudioProcState* st = audioproc_st;
   audiofwk_close(st->audfwk);
   midifwk_close(st->midifwk);
+  oscac_stop(st->oscac);
 }
