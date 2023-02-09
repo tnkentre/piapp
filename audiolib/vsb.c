@@ -41,7 +41,7 @@ struct VSB_State_ {
   float* buf[2];
   int    ipos;
   float  fpos;
-  float  rec[2];
+  float  srcprev[2];
   float  writestock[2];
   int    idxstock;
   float*  position;
@@ -50,11 +50,13 @@ struct VSB_State_ {
   /* parameters */
   float loopgain;
   float feedbackgain;
+  float recgain;
 } ;
 
 static const RegDef_t rd[] = {
   AC_REGDEF(loopgain,     CLI_ACFPTM,   VSB_State, "Loopback gain"),
   AC_REGDEF(feedbackgain, CLI_ACFPTM,   VSB_State, "Feedback gain"),
+  AC_REGDEF(recgain,      CLI_ACFPTM,   VSB_State, "Recording gain"),
   AC_REGADEF(position, position_len, CLI_ACFPTMA,   VSB_State, "position"),
 };
 
@@ -75,6 +77,7 @@ VSB_State *vsb_init(const char * name, int size)
   st->fpos   = 0.0f;
   st->loopgain = 1.0f;
   st->feedbackgain = 1.0f;
+  st->recgain = 1.0f;
 	
   st->writestock[0] = 0.0f;
   st->writestock[1] = 0.0f;
@@ -86,7 +89,7 @@ VSB_State *vsb_init(const char * name, int size)
   return st;
 }
 
-void vsb_process(VSB_State * restrict st, float* dst[], float* src[], float* speed, float* note, int len)
+void vsb_process(VSB_State * restrict st, float* dst[], float* src[], float* speed, int len)
 {
   int   i, j;
   int   ipos_next;
@@ -131,38 +134,38 @@ void vsb_process(VSB_State * restrict st, float* dst[], float* src[], float* spe
     // write stock
     if (st->ipos != ipos_next) {
       if (speed[i] > 0.0f) {
-	ipos_nexttmp = ipos_next > st->ipos ? ipos_next : ipos_next + st->size;
-	if (note[i] > 0.0f) {
-	  norm = 1.0f / (ipos_nexttmp - st->ipos + fpos_next - st->fpos);
-	  for (j=st->ipos+1; j<ipos_nexttmp; j++) {
-	    st->buf[0][j<st->size?j:j-st->size] *= st->feedbackgain;
-	    st->buf[1][j<st->size?j:j-st->size] *= st->feedbackgain;
-	    st->buf[0][j<st->size?j:j-st->size] += norm * ((j - st->ipos - st->fpos) * src[0][i] * note[i] + (ipos_nexttmp - j + fpos_next) * st->rec[0]);
-	    st->buf[1][j<st->size?j:j-st->size] += norm * ((j - st->ipos - st->fpos) * src[1][i] * note[i] + (ipos_nexttmp - j + fpos_next) * st->rec[1]);
-	  }
-	  st->writestock[0] = norm * ((ipos_nexttmp - st->ipos - st->fpos) * src[0][i] * note[i] + fpos_next * st->rec[0]);
-	  st->writestock[1] = norm * ((ipos_nexttmp - st->ipos - st->fpos) * src[1][i] * note[i] + fpos_next * st->rec[1]);
-	}
-	st->idxstock = ipos_nexttmp < st->size ? ipos_nexttmp : ipos_nexttmp - st->size;
+        ipos_nexttmp = ipos_next > st->ipos ? ipos_next : ipos_next + st->size;
+        if (st->recgain > 0.0f) {
+      	  norm = 1.0f / (ipos_nexttmp - st->ipos + fpos_next - st->fpos);
+	        for (j=st->ipos+1; j<ipos_nexttmp; j++) {
+            st->buf[0][j<st->size?j:j-st->size] *= st->feedbackgain;
+            st->buf[1][j<st->size?j:j-st->size] *= st->feedbackgain;
+            st->buf[0][j<st->size?j:j-st->size] += norm * ((j - st->ipos - st->fpos) * src[0][i] * st->recgain + (ipos_nexttmp - j + fpos_next) * st->srcprev[0]);
+            st->buf[1][j<st->size?j:j-st->size] += norm * ((j - st->ipos - st->fpos) * src[1][i] * st->recgain + (ipos_nexttmp - j + fpos_next) * st->srcprev[1]);
+          }
+          st->writestock[0] = norm * ((ipos_nexttmp - st->ipos - st->fpos) * src[0][i] * st->recgain + fpos_next * st->srcprev[0]);
+          st->writestock[1] = norm * ((ipos_nexttmp - st->ipos - st->fpos) * src[1][i] * st->recgain + fpos_next * st->srcprev[1]);
+        }
+	      st->idxstock = ipos_nexttmp < st->size ? ipos_nexttmp : ipos_nexttmp - st->size;
       }
       else if (speed[i] < 0.0f) {
-	ipos_curtmp = ipos_next < st->ipos ? st->ipos : st->ipos + st->size;
-	if (note[i] > 0.0f) {
-	  norm = 1.0f / (ipos_curtmp - ipos_next + st->fpos - fpos_next);
-	  for (j=ipos_curtmp; j>ipos_next+1; j--) {
-	    st->buf[0][j<st->size?j:j-st->size] *= st->feedbackgain;
-	    st->buf[1][j<st->size?j:j-st->size] *= st->feedbackgain;
-	    st->buf[0][j<st->size?j:j-st->size] += norm * ((ipos_curtmp - j + st->fpos) * src[0][i] * note[i] + (j - ipos_next - fpos_next) * st->rec[0]);
-	    st->buf[1][j<st->size?j:j-st->size] += norm * ((ipos_curtmp - j + st->fpos) * src[1][i] * note[i] + (j - ipos_next - fpos_next) * st->rec[1]);
-	  }
-	  st->writestock[0] = norm * ((ipos_curtmp - ipos_next - 1 + st->fpos) * src[0][i] * note[i] + (1.0f - fpos_next) * st->rec[0]);
-	  st->writestock[1] = norm * ((ipos_curtmp - ipos_next - 1 + st->fpos) * src[1][i] * note[i] + (1.0f - fpos_next) * st->rec[1]);
-	}
-	st->idxstock = ipos_next+1 < st->size ? ipos_next+1 : ipos_next+1-st->size;
+        ipos_curtmp = ipos_next < st->ipos ? st->ipos : st->ipos + st->size;
+        if (st->recgain > 0.0f) {
+          norm = 1.0f / (ipos_curtmp - ipos_next + st->fpos - fpos_next);
+          for (j=ipos_curtmp; j>ipos_next+1; j--) {
+            st->buf[0][j<st->size?j:j-st->size] *= st->feedbackgain;
+            st->buf[1][j<st->size?j:j-st->size] *= st->feedbackgain;
+            st->buf[0][j<st->size?j:j-st->size] += norm * ((ipos_curtmp - j + st->fpos) * src[0][i] * st->recgain + (j - ipos_next - fpos_next) * st->srcprev[0]);
+            st->buf[1][j<st->size?j:j-st->size] += norm * ((ipos_curtmp - j + st->fpos) * src[1][i] * st->recgain + (j - ipos_next - fpos_next) * st->srcprev[1]);
+          }
+          st->writestock[0] = norm * ((ipos_curtmp - ipos_next - 1 + st->fpos) * src[0][i] * st->recgain + (1.0f - fpos_next) * st->srcprev[0]);
+          st->writestock[1] = norm * ((ipos_curtmp - ipos_next - 1 + st->fpos) * src[1][i] * st->recgain + (1.0f - fpos_next) * st->srcprev[1]);
+      	}
+	      st->idxstock = ipos_next+1 < st->size ? ipos_next+1 : ipos_next+1-st->size;
       }
     }
-    st->rec[0] = src[0][i] * note[i];
-    st->rec[1] = src[1][i] * note[i];
+    st->srcprev[0] = src[0][i] * st->recgain;
+    st->srcprev[1] = src[1][i] * st->recgain;
 
     // prepare for next
     st->ipos = ipos_next;

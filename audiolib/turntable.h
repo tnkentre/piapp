@@ -43,7 +43,7 @@ typedef struct TurntableState_ TurntableState;
  * @param frame_size Number of frame size
  * @return Initialized state of the Turntable
  */
-TurntableState* Turntable_init(const char *name, int fs, int frame_size, int ntdvsb, int nfdvsb);
+TurntableState* Turntable_init(const char *name, int fs, int frame_size);
 
 /** @fn void Turntable_proc(TurntableState* st, float* out[], float* in[], float* tc[])
  * @brief This function execute Turntable
@@ -53,8 +53,4 @@ TurntableState* Turntable_init(const char *name, int fs, int frame_size, int ntd
  * @param tc  Input time code buffer's pointer array
  */
 void Turntable_proc(TurntableState* st, float* out[], float* in[], float* tc[]);
-
-void Turntable_set_note_td(TurntableState* st, int id, float note);
-void Turntable_set_note_fd(TurntableState* st, int id, float note);
-void Turntable_set_gain_in(TurntableState* st, float gain);
 #endif /* _TURNTABLE_H_ */

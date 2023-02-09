@@ -57,7 +57,7 @@ VSB_State *vsb_init(const char * name, int size);
  * @param tcR   input Rch tc signal buffer's pointer array
  * @param len   Length of the buffer
  */
-void vsb_process(VSB_State * restrict st, float* dst[], float* src[], float* speed, float* note, int len);
+void vsb_process(VSB_State * restrict st, float* dst[], float* src[], float* speed, int len);
 
 #ifdef __cplusplus
 } 
