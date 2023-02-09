@@ -60,6 +60,14 @@ FBVSB_State *FBvsb_init(const char * name, int nch, int fs, int frame_size, floa
  */
 void FBvsb_process(FBVSB_State * restrict st, float* dst[], float* src[], float* speed);
 
+/** @fn void FBvsb_set_feedbackgain(FBVSB_State * restrict st, float feedbackgain)
+ * @brief This function sets the feedbackgain
+ * @param st State of the VSB
+ * @param feedbackgain feedbackgain
+ */
+void FBvsb_set_feedbackgain(FBVSB_State * restrict st, float feedbackgain);
+
+
 #ifdef __cplusplus
 } 
 #endif

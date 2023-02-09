@@ -299,3 +299,8 @@ void FBvsb_process(FBVSB_State * restrict st, float* dst[], float* src[], float*
 
   proc_put(st, src, speed);
 }
+
+void FBvsb_set_feedbackgain(FBVSB_State * restrict st, float feedbackgain)
+{
+  st->feedbackgain = feedbackgain;
+}

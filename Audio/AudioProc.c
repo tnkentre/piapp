@@ -126,8 +126,8 @@ void AudioProc_init(void)
   /* OSC */
   st->oscac = oscac_init("OSCAC", OSCAC_INITMODE_FULLACCESS);
   oscac_start(st->oscac);
-  oscac_add_acreg(st->oscac, "tt0_tdvsb0", "position");
-  oscac_add_acreg(st->oscac, "tt1_tdvsb0", "position");
+  oscac_add_acreg(st->oscac, "tt0", "vinyl");
+  oscac_add_acreg(st->oscac, "tt1", "vinyl");
   oscac_set_moninterval(st->oscac, 20);
 
   /* Initialize and start AudioFwk */
