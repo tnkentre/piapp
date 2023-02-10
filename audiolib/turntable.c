@@ -92,10 +92,11 @@ TurntableState* Turntable_init(const char *name, int fs, int frame_size)
   st->frame_size = frame_size;
 
   st->ingain     = 1.0f;
-  st->recgain    = 1.0f;
-  st->fdbal      = 1.0f;
+  st->recgain    = 0.0f;
+  st->overdub    = 0.0f;
+  st->fdbal      = 0.0f;
   st->monitor    = 1.0f;
-  st->looplen    = 3;
+  st->looplen    = 4;
   st->looplen_   = 0;
 
   st->vinyl_len  = 2;

@@ -42,6 +42,8 @@
 #include "oscac.h"
 #include "AudioProc.h"
 
+AC4_MODULE;
+
 /*
  * AEC functions
  */
@@ -71,6 +73,8 @@ typedef enum {
 } CH_OUT;
 
 typedef struct {
+  AC4_HEADER;
+
   /* Configuration */
   int fs;
   int frame_size;
@@ -78,6 +82,12 @@ typedef struct {
   int nch_output;
   //  int note_state[NTURNTABLE][LENID_NUM][NVSB];
   
+  /* parameters */
+  float sync0;
+  float sync1;
+  int source0;
+  int source1;
+
   /* AC states */
   TurntableState* turntable[NTURNTABLE];
 
@@ -89,17 +99,34 @@ typedef struct {
   
 } AudioProcState;
 
+static const RegDef_t rd[] = {
+  AC_REGDEF(sync0,     CLI_ACFPTM,   AudioProcState, "sync0"),
+  AC_REGDEF(sync1,     CLI_ACFPTM,   AudioProcState, "sync1"),
+  AC_REGDEF(source0,   CLI_ACIPTM,   AudioProcState, "source0"),
+  AC_REGDEF(source1,   CLI_ACIPTM,   AudioProcState, "source1"),
+};
+
 /* The instance */
 static AudioProcState* audioproc_st = NULL;
 
 static void AudioProc(float * out[], float* in[])
 {
-  int i;
   AudioProcState* st = audioproc_st;
 
-  for (i=0; i<NTURNTABLE; i++) {
-    Turntable_proc(st->turntable[i], &out[CH_OUT_AUD0L+2*i], &in[CH_IN_AUDL], &in[CH_IN_TC0L+2*i]);
-  }
+  float ** src;
+  float ** tc;
+
+  if (!st->sync0)   tc = &in[CH_IN_TC0L];
+  else              tc = &in[CH_IN_TC1L];
+  if (!st->source0) src = &in[CH_IN_TC0L];
+  else              src = &in[CH_IN_AUDL];
+  Turntable_proc(st->turntable[0], &out[CH_OUT_AUD0L], src, tc);
+
+  if (!st->sync1)   tc = &in[CH_IN_TC1L];
+  else              tc = &in[CH_IN_TC0L];
+  if (!st->source1) src = &in[CH_IN_TC1L];
+  else              src = &in[CH_IN_AUDL];
+  Turntable_proc(st->turntable[1], &out[CH_OUT_AUD1L], src, tc);
 
   vec_add(out[CH_OUT_MIXL], out[CH_OUT_AUD0L], out[CH_OUT_AUD1L], st->frame_size);
   vec_add(out[CH_OUT_MIXR], out[CH_OUT_AUD0R], out[CH_OUT_AUD1R], st->frame_size);
@@ -113,10 +140,18 @@ void AudioProc_init(void)
   st = MEM_ALLOC(MEM_SDRAM, AudioProcState, 1, 4);
   audioproc_st = st;
 
+  AC4_ADD("top", st, "AudioProc");
+  AC4_ADD_REG(rd);
+
   st->fs         = FS;
   st->frame_size = FRAME_SIZE;
   st->nch_input  = CH_IN_NUM;
   st->nch_output = CH_OUT_NUM;
+
+  st->sync0 = 0.f;
+  st->sync1 = 0.f;
+  st->source0 = 1;
+  st->source1 = 1;
 
   for (i=0; i<NTURNTABLE; i++) {
     sprintf(name, "tt%d",i);
@@ -126,8 +161,19 @@ void AudioProc_init(void)
   /* OSC */
   st->oscac = oscac_init("OSCAC", OSCAC_INITMODE_FULLACCESS);
   oscac_start(st->oscac);
-  oscac_add_acreg(st->oscac, "tt0", "vinyl");
-  oscac_add_acreg(st->oscac, "tt1", "vinyl");
+
+  for (i=0; i<NTURNTABLE; i++) {
+    char str[32];
+    sprintf(str, "sync%d",i);   oscac_add_acreg(st->oscac, "top", str);
+    sprintf(str, "source%d",i); oscac_add_acreg(st->oscac, "top", str);
+    sprintf(str, "tt%d", i);    oscac_add_acreg(st->oscac, str, "igain");
+    sprintf(str, "tt%d", i);    oscac_add_acreg(st->oscac, str, "recgain");
+    sprintf(str, "tt%d", i);    oscac_add_acreg(st->oscac, str, "overdub");
+    sprintf(str, "tt%d", i);    oscac_add_acreg(st->oscac, str, "fdbal");
+    sprintf(str, "tt%d", i);    oscac_add_acreg(st->oscac, str, "monitor");
+    sprintf(str, "tt%d", i);    oscac_add_acreg(st->oscac, str, "looplen");
+    sprintf(str, "tt%d", i);    oscac_add_acreg(st->oscac, str, "vinyl");
+  }
   oscac_set_moninterval(st->oscac, 20);
 
   /* Initialize and start AudioFwk */
