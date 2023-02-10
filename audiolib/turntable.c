@@ -104,11 +104,12 @@ TurntableState* Turntable_init(const char *name, int fs, int frame_size)
   sprintf(subname, "%s_tcana",name);
   st->tcana = tcanalysis_init(subname, st->fs, 1000.f);
 
-  sprintf(subname, "%s_tdvsb",name);    
-  st->tdvsb = vsb_init(subname, (int)(st->fs * sec));
-
   sprintf(subname, "%s_fdvsb",name);    
   st->fdvsb = FBvsb_init(subname, 2, st->fs, st->frame_size, sec);
+
+  sprintf(subname, "%s_tdvsb",name);    
+  st->tdvsb = vsb_init(subname, FBvsb_get_buflen(st->fdvsb));
+
   
   return st;
 }
@@ -155,6 +156,7 @@ void Turntable_proc(TurntableState* st, float* out[], float* in[], float* tc[])
       break;
     }
     vsb_set_looplen(st->tdvsb, ratio);
+    FBvsb_set_looplen(st->fdvsb, ratio);
     st->looplen_ = st->looplen;
   }
 

@@ -60,6 +60,20 @@ FBVSB_State *FBvsb_init(const char * name, int nch, int fs, int frame_size, floa
  */
 void FBvsb_process(FBVSB_State * restrict st, float* dst[], float* src[], float* speed);
 
+/** @fn int FBvsb_get_buflen(FBVSB_State * restrict st)
+ * @brief This function gets the buffer length
+ * @param st State of the FBVSB
+ * @return Buffer length in time domain data number
+ */
+ int FBvsb_get_buflen(FBVSB_State * restrict st);
+
+/** @fn void vsb_set_looplen(VSB_State * restrict st, float ratio)
+ * @brief This function sets the loop length
+ * @param st State of the FBVSB
+ * @param ratio Ratio from max loop length
+ */
+void FBvsb_set_looplen(FBVSB_State * restrict st, float ratio);
+
 /** @fn void FBvsb_set_feedbackgain(FBVSB_State * restrict st, float feedbackgain)
  * @brief This function sets the feedbackgain
  * @param st State of the VSB

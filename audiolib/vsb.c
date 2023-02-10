@@ -41,7 +41,7 @@ AC4_MODULE;
       while(idx >= end)  idx -= (end-start);            \
     }                                                   \
     else {                                              \
-      while(idx < start)     idx += (size-start+end);   \
+      while(idx < start)     idx += size;               \
       while(idx >= end+size) idx -= (size-start+end);   \
       if (idx >= size) idx -= size;                     \
     }                                                   \
@@ -57,12 +57,9 @@ struct VSB_State_ {
   float  fpos_prev;
   float  speed_prev;
   float  src_prev[2];
-  int    loop_change;
   int    loop_len;
   int    loop_start;
   int    loop_end;
-  float  debug_fpos_min;
-  float  debug_fpos_max;
 
   /* parameters */
   float loopgain;
@@ -74,8 +71,6 @@ static const RegDef_t rd[] = {
   AC_REGDEF(loopgain,     CLI_ACFPTM,   VSB_State, "Loopback gain"),
   AC_REGDEF(feedbackgain, CLI_ACFPTM,   VSB_State, "Feedback gain"),
   AC_REGDEF(recgain,      CLI_ACFPTM,   VSB_State, "Recording gain"),
-  AC_REGDEF(debug_fpos_min, CLI_ACFPTM,   VSB_State, "Recording gain"),
-  AC_REGDEF(debug_fpos_max, CLI_ACFPTM,   VSB_State, "Recording gain"),
   AC_REGDEF(loop_start, CLI_ACIPTM,   VSB_State, "Recording gain"),
   AC_REGDEF(loop_end, CLI_ACIPTM,   VSB_State, "Recording gain"),
   AC_REGDEF(loop_len, CLI_ACIPTM,   VSB_State, "Recording gain"),
@@ -95,9 +90,9 @@ VSB_State *vsb_init(const char * name, int size)
   st->buf[1] = MEM_ALLOC(MEM_SDRAM, float, st->size, 8);
   vec_set(st->buf[0], 0.0f, st->size);
   vec_set(st->buf[1], 0.0f, st->size);
-  st->loopgain = 1.0f;
+  st->loopgain     = 1.0f;
   st->feedbackgain = 1.0f;
-  st->recgain = 1.0f;
+  st->recgain      = 1.0f;
   st->loop_len = st->size;
   st->loop_start = 0;
   st->loop_end = st->loop_len;
@@ -108,7 +103,6 @@ VSB_State *vsb_init(const char * name, int size)
 void vsb_process(VSB_State * restrict st, float* dst[], float* src[], float* speed, int len)
 {
   int   i, j;
-  int   size = st->size;
   int   ipos;
   int   ipos_prev;
   int   ipos_temp;
@@ -118,15 +112,6 @@ void vsb_process(VSB_State * restrict st, float* dst[], float* src[], float* spe
   float speed_prev;
   float bal0, bal1;
   int   bufidx;
-
-  // Change loop length
-  if (st->loop_change) {
-    st->loop_change = 0;
-    st->loop_len = MIN(size, st->loop_len);
-    st->loop_start = (int)st->fpos;
-    st->loop_end = st->loop_start + st->loop_len;
-    while(st->loop_end > size) st->loop_end -= size;
-  }
 
   for (i=0; i<len; i++) {
 
@@ -145,7 +130,7 @@ void vsb_process(VSB_State * restrict st, float* dst[], float* src[], float* spe
     bal1   = fpos - (float)ipos;
     bal0   = 1.0 - bal1;
     bufidx = ipos+1;
-    ADJIDX(bufidx, st->loop_start, st->loop_end, size);
+    ADJIDX(bufidx, st->loop_start, st->loop_end, st->size);
     if (speed_prev==0.0f) {
       dst[0][i] = 0.f;
       dst[1][i] = 0.f;
@@ -164,7 +149,7 @@ void vsb_process(VSB_State * restrict st, float* dst[], float* src[], float* spe
           bal1 = ((float)j - fpos_prev) / (fpos - fpos_prev);
           bal0 = 1.f - bal1;
           bufidx = j;
-          ADJIDX(bufidx, st->loop_start, st->loop_end, size);
+          ADJIDX(bufidx, st->loop_start, st->loop_end, st->size);
           st->buf[0][bufidx] *= st->feedbackgain;
           st->buf[1][bufidx] *= st->feedbackgain;
           st->buf[0][bufidx] += st->recgain * (bal0 * src_prev[0] + bal1 * src[0][i]);
@@ -178,7 +163,7 @@ void vsb_process(VSB_State * restrict st, float* dst[], float* src[], float* spe
           bal1 = (fpos_prev - (float)j) / (fpos_prev - fpos);
           bal0 = 1.f - bal1;
           bufidx = j;
-          ADJIDX(bufidx, st->loop_start, st->loop_end, size);
+          ADJIDX(bufidx, st->loop_start, st->loop_end, st->size);
           st->buf[0][bufidx] *= st->feedbackgain;
           st->buf[1][bufidx] *= st->feedbackgain;
           st->buf[0][bufidx] += st->recgain * (bal0 * src_prev[0] + bal1 * src[0][i]);
@@ -189,15 +174,12 @@ void vsb_process(VSB_State * restrict st, float* dst[], float* src[], float* spe
 
     // update history
     fpos += speed[i];
-    ADJIDX(fpos, st->loop_start, st->loop_end, size);
+    ADJIDX(fpos, st->loop_start, st->loop_end, st->size);
     st->fpos_prev   = st->fpos;
     st->fpos        = fpos;
     st->src_prev[0] = src[0][i];
     st->src_prev[1] = src[1][i];
     st->speed_prev  = speed[i];
-
-    st->debug_fpos_min = MIN(st->debug_fpos_min, fpos);
-    st->debug_fpos_max = MAX(st->debug_fpos_max, fpos);
   }
 }
 
@@ -208,17 +190,18 @@ void vsb_set_feedbackgain(VSB_State * restrict st, float feedbackgain)
 
 void vsb_set_looplen(VSB_State * restrict st, float ratio)
 {
-  st->loop_len = (int)((float)(st->size) * ratio);
-  st->loop_change = 1;
+  // Change loop length
+  if (ratio >= 0.f && ratio <= 1.f) {
+    st->loop_len = (int)((float)(st->size) * ratio);
+    st->loop_len = MIN(st->size, st->loop_len);
+    st->loop_start = (int)(st->fpos / st->loop_len) * st->loop_len;
+    st->loop_end = st->loop_start + st->loop_len;
+    while(st->loop_end > st->size) st->loop_end -= st->size;
+  }
 }
 
 float vsb_vinylpos(VSB_State * restrict st)
 {
-  float start = (float)(st->loop_start);
-  float fpos  = st->fpos;
-  if (fpos < start) {
-    fpos += st->size;
-  }
-  return (fpos-start) / (st->loop_len);
+  return st->fpos / (float)(st->size);
 }
 

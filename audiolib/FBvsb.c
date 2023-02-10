@@ -39,6 +39,19 @@
 
 AC4_MODULE;
 
+/* modify buffer index to be within the range */
+#define ADJIDX(idx, start, end, size)  do {			    		\
+    if (start < end) {                                  \
+      while(idx < start) idx += (end-start);            \
+      while(idx >= end)  idx -= (end-start);            \
+    }                                                   \
+    else {                                              \
+      while(idx < start)     idx += size;               \
+      while(idx >= end+size) idx -= (size-start+end);   \
+      if (idx >= size) idx -= size;                     \
+    }                                                   \
+  } while(0)
+
 /*****************
  *    Tool       *
  *****************/
@@ -82,6 +95,9 @@ struct FBVSB_State_ {
   float  * ha;
   
   float  fpos;
+  int    loop_len;
+  int    loop_start;
+  int    loop_end;
 
   /* Audio Components */
   RevoFFTState * restrict fft;
@@ -122,6 +138,9 @@ FBVSB_State *FBvsb_init(const char * name, int nch, int fs, int frame_size, floa
   st->nch           = nch;
   st->nband         = nband;
   st->nhist         = (int)(length_sec * fs / frame_size);
+  st->loop_len      = st->nhist * st->nband;
+  st->loop_start    = 0;
+  st->loop_end      = st->loop_len;
 
   st->ha = MEM_ALLOC(MEM_SDRAM, float, fbfilter_size, 8);
   COPY(st->ha, fbinfo->filter_h, fbfilter_size);
@@ -174,10 +193,7 @@ static void proc_put(FBVSB_State * restrict st, float* src[], float* speed)
   
   for (i=0; i<frame_size; i++) {
     st->fpos += speed[i];
-    while(st->fpos >= (float)nhist * frame_size)
-      st->fpos -= (float)nhist * frame_size;
-    while(st->fpos <  0 )
-      st->fpos += (float)nhist * frame_size;
+    ADJIDX(st->fpos, st->loop_start, st->loop_end, nhist * frame_size);
     putlen++;
     if ((int)(st->fpos / frame_size) != cur) {
       for (ch=0; ch<nch; ch++) {
@@ -248,10 +264,7 @@ static void proc_get(FBVSB_State * restrict st, float* dst[], float* speed)
   ALLOC(X,   nband+1, rv_complex);
   
   fpos += vec_sum(speed, st->frame_size);
-  while (fpos >= (float)nhist * frame_size)
-    fpos -= nhist * frame_size;
-  while (fpos < 0.f)
-    fpos += nhist * frame_size;
+  ADJIDX(fpos, st->loop_start, st->loop_end, nhist * frame_size);
   cur = (int)(fpos / frame_size);
   cur1 = cur < nhist-1 ? cur + 1 : 0;
   bal1 = (fpos - cur * frame_size) * RECIP((float)frame_size);
@@ -295,6 +308,24 @@ void FBvsb_process(FBVSB_State * restrict st, float* dst[], float* src[], float*
 
   proc_put(st, src, speed);
 }
+
+int FBvsb_get_buflen(FBVSB_State * restrict st)
+{
+  return st->nhist * st->frame_size;
+}
+
+void FBvsb_set_looplen(FBVSB_State * restrict st, float ratio) {
+  // Change loop length
+  int size = st->nhist * st->frame_size;
+  if (ratio >= 0.f && ratio <= 1.f) {
+    st->loop_len = (int)((float)(size) * ratio);
+    st->loop_len = MIN(size, st->loop_len);
+    st->loop_start = (int)(st->fpos / st->loop_len) * st->loop_len;
+    st->loop_end = st->loop_start + st->loop_len;
+    while(st->loop_end > size) st->loop_end -= size;
+  }
+}
+
 
 void FBvsb_set_feedbackgain(FBVSB_State * restrict st, float feedbackgain)
 {

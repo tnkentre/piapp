@@ -69,7 +69,7 @@ void vsb_set_feedbackgain(VSB_State * restrict st, float feedbackgain);
 /** @fn void vsb_set_looplen(VSB_State * restrict st, float ratio)
  * @brief This function sets the loop length
  * @param st State of the VSB
- * @param ratio Ratio of max loop length
+ * @param ratio Ratio from max loop length
  */
 void vsb_set_looplen(VSB_State * restrict st, float ratio);
 
