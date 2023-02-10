@@ -181,38 +181,38 @@ static void proc_put(FBVSB_State * restrict st, float* src[], float* speed)
     putlen++;
     if ((int)(st->fpos / frame_size) != cur) {
       for (ch=0; ch<nch; ch++) {
-	chst = &st->ch[ch];
-	simplecb_write(chst->tdbuf, &src[ch][i-putlen+1], putlen);
+      	chst = &st->ch[ch];
+	      simplecb_write(chst->tdbuf, &src[ch][i-putlen+1], putlen);
 	
-	// FB analysis
-	simplecb_read(chst->tdbuf, fftbuf, fbfilter_size, 0);
-	if (st->recgain > 0.f) {
-	  vec_mul1(fftbuf, st->ha, fbfilter_size);
-	  for (m=0; m<fbfilter_size/fft_size-1; m++) {
-	    vec_add1(fftbuf, &fftbuf[(m+1)*fft_size], fft_size);
-	  }
-	  RevoFFT_fftr(st->fft, (float*)fdtemp, fftbuf);
-	  vec_cplx_wadd1(chst->hist[cur].X, st->feedbackgain, st->recgain, fdtemp, nband);
-	}
+        // FB analysis
+        simplecb_read(chst->tdbuf, fftbuf, fbfilter_size, 0);
+        if (st->recgain > 0.f) {
+          vec_mul1(fftbuf, st->ha, fbfilter_size);
+          for (m=0; m<fbfilter_size/fft_size-1; m++) {
+            vec_add1(fftbuf, &fftbuf[(m+1)*fft_size], fft_size);
+          }
+          RevoFFT_fftr(st->fft, (float*)fdtemp, fftbuf);
+          vec_cplx_wadd1(chst->hist[cur].X, st->feedbackgain, st->recgain, fdtemp, nband);
+        }
 
-	simplecb_read(chst->tdbuf, fftbuf, fbfilter_size, frame_size);
-	if (st->recgain > 0.f) {
-	  vec_mul1(fftbuf, st->ha, fbfilter_size);
-	  for (m=0; m<fbfilter_size/fft_size-1; m++) {
-	    vec_add1(fftbuf, &fftbuf[(m+1)*fft_size], fft_size);
-	  }
-	  RevoFFT_fftr(st->fft, (float*)fdtemp, fftbuf);
-	  vec_cplx_wadd1(chst->hist[cur].X1, st->feedbackgain, st->recgain, fdtemp, nband);
-	}
+        simplecb_read(chst->tdbuf, fftbuf, fbfilter_size, frame_size);
+        if (st->recgain > 0.f) {
+          vec_mul1(fftbuf, st->ha, fbfilter_size);
+          for (m=0; m<fbfilter_size/fft_size-1; m++) {
+            vec_add1(fftbuf, &fftbuf[(m+1)*fft_size], fft_size);
+          }
+          RevoFFT_fftr(st->fft, (float*)fdtemp, fftbuf);
+          vec_cplx_wadd1(chst->hist[cur].X1, st->feedbackgain, st->recgain, fdtemp, nband);
+        }
 
-	// level
-	vec_spectral_power(sctemp, chst->hist[cur].X, nband);
-	vec_sqrt(chst->hist[cur].lev, sctemp, nband);
+        // level
+        vec_spectral_power(sctemp, chst->hist[cur].X, nband);
+        vec_sqrt(chst->hist[cur].lev, sctemp, nband);
 	
-	// phase analysis
-	vec_cplx_mul_conj(fdtemp, chst->hist[cur].X1, chst->hist[cur].X, nband);
-	vec_angle(chst->hist[cur].ph, fdtemp, nband);
-	// !!todo!! adjust fractional delay
+        // phase analysis
+        vec_cplx_mul_conj(fdtemp, chst->hist[cur].X1, chst->hist[cur].X, nband);
+        vec_angle(chst->hist[cur].ph, fdtemp, nband);
+        // !!todo!! adjust fractional delay
       }
       putlen = 0;
       cur = (int)(st->fpos / frame_size);
