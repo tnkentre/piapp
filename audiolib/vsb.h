@@ -59,12 +59,19 @@ VSB_State *vsb_init(const char * name, int size);
  */
 void vsb_process(VSB_State * restrict st, float* dst[], float* src[], float* speed, int len);
 
-/** @fn float vsb_set_feedbackgain(VSB_State * restrict st, float feedbackgain)
+/** @fn void vsb_set_feedbackgain(VSB_State * restrict st, float feedbackgain)
  * @brief This function sets the feedbackgain
  * @param st State of the VSB
  * @param feedbackgain feedbackgain
  */
 void vsb_set_feedbackgain(VSB_State * restrict st, float feedbackgain);
+
+/** @fn void vsb_set_looplen(VSB_State * restrict st, float ratio)
+ * @brief This function sets the loop length
+ * @param st State of the VSB
+ * @param ratio Ratio of max loop length
+ */
+void vsb_set_looplen(VSB_State * restrict st, float ratio);
 
 /** @fn float vsb_vinylpos(VSB_State * restrict st)
  * @brief This function retrieve the current position on the vinyl

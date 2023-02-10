@@ -290,11 +290,7 @@ void FBvsb_process(FBVSB_State * restrict st, float* dst[], float* src[], float*
   
   proc_get(st, dst, speed);
   for (ch=0; ch<nch; ch++) {
-#if 0
-    vec_wadd1(dst[ch], st->loopgain, 1.f, src[ch], frame_size);
-#else
-    vec_mul1s(dst[ch], st->loopgain, frame_size);
-#endif
+    vec_mul1s(dst[ch], st->loopgain * st->feedbackgain, frame_size);
   }
 
   proc_put(st, src, speed);

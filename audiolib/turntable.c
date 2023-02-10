@@ -53,6 +53,8 @@ struct TurntableState_ {
   float overdub;
   float fdbal;
   float monitor;
+  int   looplen;
+  int   looplen_;
 
   /* for OSC */
   int vinyl_len;
@@ -71,6 +73,7 @@ static const RegDef_t rd[] = {
   AC_REGDEF(overdub, CLI_ACFPTM, TurntableState, "overdub"),
   AC_REGDEF(fdbal,   CLI_ACFPTM, TurntableState, "Balance to FD"),
   AC_REGDEF(monitor, CLI_ACFPTM, TurntableState, "Input monitor level"),
+  AC_REGDEF(looplen, CLI_ACIPTM, TurntableState, "Input monitor level"),
   AC_REGADEF(vinyl, vinyl_len, CLI_ACFPTMA,   TurntableState, "position"),
 };
 
@@ -92,6 +95,8 @@ TurntableState* Turntable_init(const char *name, int fs, int frame_size)
   st->recgain    = 1.0f;
   st->fdbal      = 1.0f;
   st->monitor    = 1.0f;
+  st->looplen    = 3;
+  st->looplen_   = 0;
 
   st->vinyl_len  = 2;
   st->vinyl = MEM_ALLOC(MEM_SDRAM, float, st->vinyl_len, 4);
@@ -127,6 +132,31 @@ void Turntable_proc(TurntableState* st, float* out[], float* in[], float* tc[])
   ALLOC(in_rec[1],  frame_size, float);
   ALLOC(temp[0],  frame_size, float);
   ALLOC(temp[1],  frame_size, float);
+
+  /* loop length */
+  if (st->looplen != st->looplen_) {
+    float ratio;
+    switch(st->looplen) {
+    case 0:
+      ratio = 1.f / 8.f;
+      break;
+    case 1:
+      ratio = 2.f / 8.f;
+      break;
+    case 2:
+      ratio = 3.f / 8.f;
+      break;
+    case 3:
+      ratio = 4.f / 8.f;
+      break;
+    default:
+    case 4:
+      ratio = 1.f;
+      break;
+    }
+    vsb_set_looplen(st->tdvsb, ratio);
+    st->looplen_ = st->looplen;
+  }
 
   /* overdub setting */
   if (st->overdub == 0.f && st->recgain > 0.f) {
