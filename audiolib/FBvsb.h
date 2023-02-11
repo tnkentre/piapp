@@ -70,9 +70,10 @@ void FBvsb_process(FBVSB_State * restrict st, float* dst[], float* src[], float*
 /** @fn void vsb_set_looplen(VSB_State * restrict st, float ratio)
  * @brief This function sets the loop length
  * @param st State of the FBVSB
- * @param ratio Ratio from max loop length
+ * @param loop_start buffer index of looptop
+ * @param loop_len length of loop
  */
-void FBvsb_set_looplen(FBVSB_State * restrict st, float ratio);
+void FBvsb_set_loop(FBVSB_State * restrict st, int loop_start, int loop_len);
 
 /** @fn void FBvsb_set_feedbackgain(FBVSB_State * restrict st, float feedbackgain)
  * @brief This function sets the feedbackgain

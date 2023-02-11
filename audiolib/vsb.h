@@ -71,7 +71,14 @@ void vsb_set_feedbackgain(VSB_State * restrict st, float feedbackgain);
  * @param st State of the VSB
  * @param ratio Ratio from max loop length
  */
-void vsb_set_looplen(VSB_State * restrict st, float ratio);
+void vsb_set_loop(VSB_State * restrict st, int loop_start, int loop_len);
+
+/** @fn float vsb_get_pos(VSB_State * restrict st)
+ * @brief This function return the current buffer index
+ * @param st State of the VSB
+ * @return current buffer index
+ */
+float vsb_get_pos(VSB_State * restrict st);
 
 /** @fn float vsb_vinylpos(VSB_State * restrict st)
  * @brief This function retrieve the current position on the vinyl
@@ -79,7 +86,6 @@ void vsb_set_looplen(VSB_State * restrict st, float ratio);
  * @return vinyl position
  */
 float vsb_vinylpos(VSB_State * restrict st);
-
 
 #ifdef __cplusplus
 } 

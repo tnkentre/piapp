@@ -314,18 +314,17 @@ int FBvsb_get_buflen(FBVSB_State * restrict st)
   return st->nhist * st->frame_size;
 }
 
-void FBvsb_set_looplen(FBVSB_State * restrict st, float ratio) {
-  // Change loop length
+void FBvsb_set_loop(FBVSB_State * restrict st, int loop_start, int loop_len)
+{
   int size = st->nhist * st->frame_size;
-  if (ratio >= 0.f && ratio <= 1.f) {
-    st->loop_len = (int)((float)(size) * ratio);
-    st->loop_len = MIN(size, st->loop_len);
-    st->loop_start = (int)(st->fpos / st->loop_len) * st->loop_len;
+  if (loop_start < size && st->loop_len <= size) {
+    st->loop_start = loop_start;
+    st->loop_len   = loop_len;
     st->loop_end = st->loop_start + st->loop_len;
     while(st->loop_end > size) st->loop_end -= size;
+    ADJIDX(st->fpos, st->loop_start, st->loop_end, size);
   }
 }
-
 
 void FBvsb_set_feedbackgain(FBVSB_State * restrict st, float feedbackgain)
 {

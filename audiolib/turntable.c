@@ -57,6 +57,11 @@ struct TurntableState_ {
   float fdbal;
   float monitor;
   int   looplen;
+  int   looplen_;
+  float looppos;
+  int   looppos_modify_for_update;
+  int   loopstart;
+  int   loopsize;
   int   size;
   int   ipos;
   float fpos;
@@ -77,11 +82,12 @@ static const RegDef_t rd[] = {
   AC_REGDEF(flags,   CLI_ACXPTM, TurntableState, "Control flags"),
   AC_REGDEF(ingain,  CLI_ACFPTM, TurntableState, "Input gain"),
   AC_REGDEF(recgain, CLI_ACFPTM, TurntableState, "Recording gain"),
-  AC_REGDEF(recfade, CLI_ACFPTM, TurntableState, "Recording gain"),
+  AC_REGDEF(recfade, CLI_ACFPTM, TurntableState, "Fade out of recording"),
   AC_REGDEF(overdub, CLI_ACFPTM, TurntableState, "overdub"),
   AC_REGDEF(fdbal,   CLI_ACFPTM, TurntableState, "Balance to FD"),
   AC_REGDEF(monitor, CLI_ACFPTM, TurntableState, "Input monitor level"),
-  AC_REGDEF(looplen, CLI_ACIPTM, TurntableState, "Input monitor level"),
+  AC_REGDEF(looplen, CLI_ACIPTM, TurntableState, "loop length"),
+  AC_REGDEF(looppos, CLI_ACFPTM, TurntableState, "loop position"),
   AC_REGDEF(ipos,    CLI_ACIPTM, TurntableState, "track position"),
   AC_REGDEF(fpos,    CLI_ACFPTM, TurntableState, "track position"),
   AC_REGADEF(vinyl, vinyl_len, CLI_ACFPTMA,   TurntableState, "position"),
@@ -122,14 +128,16 @@ TurntableState* Turntable_init(const char *name, int fs, int frame_size)
 
   sprintf(subname, "%s_tdvsb",name);    
   st->tdvsb = vsb_init(subname, st->size);
-  
+
+  st->loopstart  = 0;
+  st->loopsize   = st->size;
+
   return st;
 }
 
 void Turntable_proc(TurntableState* st, float* out[], float* in[], float* tc[])
 {
   int frame_size = st->frame_size;
-  float ratio;
 
   VARDECLR(float, speed);
   VARDECLR(float*, in_adj);
@@ -148,26 +156,41 @@ void Turntable_proc(TurntableState* st, float* out[], float* in[], float* tc[])
   ALLOC(temp[1],  frame_size, float);
 
   /* loop length */
-  switch(st->looplen) {
-  case 0:
-    ratio = 1.f / 8.f;
-    break;
-  case 1:
-    ratio = 2.f / 8.f;
-    break;
-  case 2:
-    ratio = 3.f / 8.f;
-    break;
-  case 3:
-    ratio = 4.f / 8.f;
-    break;
-  default:
-  case 4:
-    ratio = 1.f;
-    break;
+  if (st->looplen != st->looplen_) {
+    switch(st->looplen) {
+    case 0:
+      st->loopsize = st->size / 8;
+      break;
+    case 1:
+      st->loopsize = st->size / 4;
+      break;
+    case 2:
+      st->loopsize = st->size * 3 / 8;
+      break;
+    case 3:
+      st->loopsize = st->size / 2;
+      break;
+    default:
+    case 4:
+      st->loopsize = st->size;
+      break;
+    }
+    /* get the current beat and set looppos */
+    st->looppos = (int)(vsb_get_pos(st->tdvsb) / (st->size / 8)) / 8.f;
+
+    st->looplen_ = st->looplen;
   }
-  vsb_set_looplen(st->tdvsb, ratio);
-  FBvsb_set_looplen(st->fdvsb, ratio);
+  /* loop posistion */
+  if (st->looppos >= 0.f && st->looppos <= 1.f) {
+    st->loopstart = (int)((st->looppos) * 8) * (st->size / 8);
+  }
+  st->looppos = (float)(st->loopstart) / (st->size) + 0.0625f;
+  *((uint32_t*)(&st->looppos)) += st->looppos_modify_for_update;
+  st->looppos_modify_for_update = st->looppos_modify_for_update > 3 ? 0 : st->looppos_modify_for_update+1;
+
+  /* update loop */
+  vsb_set_loop(st->tdvsb, st->loopstart, st->loopsize);
+  FBvsb_set_loop(st->fdvsb, st->loopstart, st->loopsize);
 
   /* Compute speed from TC sound */
   tcanalysis_process(st->tcana, speed, tc[0], tc[1], frame_size);
@@ -185,10 +208,10 @@ void Turntable_proc(TurntableState* st, float* out[], float* in[], float* tc[])
     if (st->rec_startspeed * speed[0] < 0.f) {
       st->recend = 1;
     }
-    if (st->rec_startspeed > 0.f && st->ipos >= st->rec_startpos + (int)(st->size * ratio)) {
+    if (st->rec_startspeed > 0.f && st->ipos >= st->rec_startpos + st->loopsize) {
       st->recend = 1;
     }
-    if (st->rec_startspeed < 0.f && st->ipos <= st->rec_startpos - (int)(st->size * ratio)) {
+    if (st->rec_startspeed < 0.f && st->ipos <= st->rec_startpos - st->loopsize) {
       st->recend = 1;
     }
     if (st->recend) {
