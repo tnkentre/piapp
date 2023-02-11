@@ -50,11 +50,17 @@ struct TurntableState_ {
   /* Parameters */
   float ingain;
   float recgain;
+  float recgain_;
   float overdub;
   float fdbal;
   float monitor;
   int   looplen;
   int   looplen_;
+  int   size;
+  int   ipos;
+  float fpos;
+  int   rec_startpos;
+  float rec_startspeed;
 
   /* for OSC */
   int vinyl_len;
@@ -74,6 +80,8 @@ static const RegDef_t rd[] = {
   AC_REGDEF(fdbal,   CLI_ACFPTM, TurntableState, "Balance to FD"),
   AC_REGDEF(monitor, CLI_ACFPTM, TurntableState, "Input monitor level"),
   AC_REGDEF(looplen, CLI_ACIPTM, TurntableState, "Input monitor level"),
+  AC_REGDEF(ipos,    CLI_ACIPTM, TurntableState, "track position"),
+  AC_REGDEF(fpos,    CLI_ACFPTM, TurntableState, "track position"),
   AC_REGADEF(vinyl, vinyl_len, CLI_ACFPTMA,   TurntableState, "position"),
 };
 
@@ -108,9 +116,10 @@ TurntableState* Turntable_init(const char *name, int fs, int frame_size)
   sprintf(subname, "%s_fdvsb",name);    
   st->fdvsb = FBvsb_init(subname, 2, st->fs, st->frame_size, sec);
 
-  sprintf(subname, "%s_tdvsb",name);    
-  st->tdvsb = vsb_init(subname, FBvsb_get_buflen(st->fdvsb));
+  st->size = FBvsb_get_buflen(st->fdvsb);
 
+  sprintf(subname, "%s_tdvsb",name);    
+  st->tdvsb = vsb_init(subname, st->size);
   
   return st;
 }
@@ -118,6 +127,7 @@ TurntableState* Turntable_init(const char *name, int fs, int frame_size)
 void Turntable_proc(TurntableState* st, float* out[], float* in[], float* tc[])
 {
   int frame_size = st->frame_size;
+  float ratio;
 
   VARDECLR(float, speed);
   VARDECLR(float*, in_adj);
@@ -136,30 +146,50 @@ void Turntable_proc(TurntableState* st, float* out[], float* in[], float* tc[])
   ALLOC(temp[1],  frame_size, float);
 
   /* loop length */
-  if (st->looplen != st->looplen_) {
-    float ratio;
-    switch(st->looplen) {
-    case 0:
-      ratio = 1.f / 8.f;
-      break;
-    case 1:
-      ratio = 2.f / 8.f;
-      break;
-    case 2:
-      ratio = 3.f / 8.f;
-      break;
-    case 3:
-      ratio = 4.f / 8.f;
-      break;
-    default:
-    case 4:
-      ratio = 1.f;
-      break;
-    }
-    vsb_set_looplen(st->tdvsb, ratio);
-    FBvsb_set_looplen(st->fdvsb, ratio);
-    st->looplen_ = st->looplen;
+  switch(st->looplen) {
+  case 0:
+    ratio = 1.f / 8.f;
+    break;
+  case 1:
+    ratio = 2.f / 8.f;
+    break;
+  case 2:
+    ratio = 3.f / 8.f;
+    break;
+  case 3:
+    ratio = 4.f / 8.f;
+    break;
+  default:
+  case 4:
+    ratio = 1.f;
+    break;
   }
+  vsb_set_looplen(st->tdvsb, ratio);
+  FBvsb_set_looplen(st->fdvsb, ratio);
+
+  /* Compute speed from TC sound */
+  tcanalysis_process(st->tcana, speed, tc[0], tc[1], frame_size);
+
+  /* auto recgain control */
+  if (st->overdub == 0.f) {
+    if (st->recgain > st->recgain_) {
+      st->rec_startpos   = st->ipos;
+      st->rec_startspeed = speed[0];
+    }
+    if (st->recgain > 0.f && st->rec_startspeed == 0.f) {
+      st->rec_startspeed = speed[0];
+    }
+    if (st->rec_startspeed * speed[0] < 0.f) {
+      st->recgain = 0.f;
+    }
+    if (st->rec_startspeed > 0.f && st->ipos >= st->rec_startpos + (int)(st->size * ratio)) {
+      st->recgain = 0.f;
+    }
+    if (st->rec_startspeed < 0.f && st->ipos <= st->rec_startpos - (int)(st->size * ratio)) {
+      st->recgain = 0.f;
+    }
+  }
+  st->recgain_ = st->recgain;
 
   /* overdub setting */
   if (st->overdub == 0.f && st->recgain > 0.f) {
@@ -170,9 +200,6 @@ void Turntable_proc(TurntableState* st, float* out[], float* in[], float* tc[])
     vsb_set_feedbackgain(st->tdvsb, 1.f);
     FBvsb_set_feedbackgain(st->fdvsb, 1.f);
   }
-
-  /* Compute speed from TC sound */
-  tcanalysis_process(st->tcana, speed, tc[0], tc[1], frame_size);
 
   /* Adjust gain */
   vec_muls(in_adj[0], in[0], st->ingain, frame_size);
@@ -200,6 +227,11 @@ void Turntable_proc(TurntableState* st, float* out[], float* in[], float* tc[])
   /* Mix input */
   vec_wadd1(out[0], 1.0f, st->monitor, in_adj[0], frame_size);
   vec_wadd1(out[1], 1.0f, st->monitor, in_adj[1], frame_size);
+
+  /* update position */
+  st->fpos += vec_sum(speed, frame_size);
+  st->ipos += (int)(st->fpos);
+  st->fpos -= (float)((int)(st->fpos));
 
   /* Update vinyl */
   float base  = 10.f * RECIP(30.48f);
