@@ -51,11 +51,12 @@ struct TurntableState_ {
   float ingain;
   float recgain;
   float recgain_;
+  int   recend;
+  float recfade;
   float overdub;
   float fdbal;
   float monitor;
   int   looplen;
-  int   looplen_;
   int   size;
   int   ipos;
   float fpos;
@@ -76,6 +77,7 @@ static const RegDef_t rd[] = {
   AC_REGDEF(flags,   CLI_ACXPTM, TurntableState, "Control flags"),
   AC_REGDEF(ingain,  CLI_ACFPTM, TurntableState, "Input gain"),
   AC_REGDEF(recgain, CLI_ACFPTM, TurntableState, "Recording gain"),
+  AC_REGDEF(recfade, CLI_ACFPTM, TurntableState, "Recording gain"),
   AC_REGDEF(overdub, CLI_ACFPTM, TurntableState, "overdub"),
   AC_REGDEF(fdbal,   CLI_ACFPTM, TurntableState, "Balance to FD"),
   AC_REGDEF(monitor, CLI_ACFPTM, TurntableState, "Input monitor level"),
@@ -101,11 +103,11 @@ TurntableState* Turntable_init(const char *name, int fs, int frame_size)
 
   st->ingain     = 1.0f;
   st->recgain    = 0.0f;
+  st->recfade    = dBtoM(-6.0 / (0.02f * fs) * frame_size);
   st->overdub    = 0.0f;
   st->fdbal      = 0.0f;
   st->monitor    = 1.0f;
   st->looplen    = 4;
-  st->looplen_   = 0;
 
   st->vinyl_len  = 2;
   st->vinyl = MEM_ALLOC(MEM_SDRAM, float, st->vinyl_len, 4);
@@ -175,24 +177,29 @@ void Turntable_proc(TurntableState* st, float* out[], float* in[], float* tc[])
     if (st->recgain > st->recgain_) {
       st->rec_startpos   = st->ipos;
       st->rec_startspeed = speed[0];
+      st->recend = 0;
     }
     if (st->recgain > 0.f && st->rec_startspeed == 0.f) {
       st->rec_startspeed = speed[0];
     }
     if (st->rec_startspeed * speed[0] < 0.f) {
-      st->recgain = 0.f;
+      st->recend = 1;
     }
     if (st->rec_startspeed > 0.f && st->ipos >= st->rec_startpos + (int)(st->size * ratio)) {
-      st->recgain = 0.f;
+      st->recend = 1;
     }
     if (st->rec_startspeed < 0.f && st->ipos <= st->rec_startpos - (int)(st->size * ratio)) {
-      st->recgain = 0.f;
+      st->recend = 1;
+    }
+    if (st->recend) {
+      st->recgain *= st->recfade;
+      if (st->recgain < dBtoM(-40.f)) st->recgain = 0.f;
     }
   }
   st->recgain_ = st->recgain;
 
   /* overdub setting */
-  if (st->overdub == 0.f && st->recgain > 0.f) {
+  if (st->overdub == 0.f && st->recgain == 1.f) {
     vsb_set_feedbackgain(st->tdvsb, 0.f);
     FBvsb_set_feedbackgain(st->fdvsb, 0.f);
   }
@@ -225,8 +232,8 @@ void Turntable_proc(TurntableState* st, float* out[], float* in[], float* tc[])
   vinyl_lev = MAX(vinyl_lev, 0.5f * MtodB(vec_sum(temp[1], frame_size) * RECIP((float)frame_size)));
 
   /* Mix input */
-  vec_wadd1(out[0], 1.0f, st->monitor, in_adj[0], frame_size);
-  vec_wadd1(out[1], 1.0f, st->monitor, in_adj[1], frame_size);
+  vec_wadd1(out[0], 1.0f, MAX(st->monitor, st->recgain), in_adj[0], frame_size);
+  vec_wadd1(out[1], 1.0f, MAX(st->monitor, st->recgain), in_adj[1], frame_size);
 
   /* update position */
   st->fpos += vec_sum(speed, frame_size);
