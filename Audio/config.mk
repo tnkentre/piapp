@@ -23,7 +23,8 @@
 # author: zkhan
 
 # Prefix for this module
-export MODULE_PREFIX = AudioServer
+#export MODULE_PREFIX = AudioServer
+export MODULE_PREFIX = dubplate
 
 #export AC := $(SVNROOT)/AudioComponents/trunk
 export AC := $(SVNROOT)/AudioComponents
