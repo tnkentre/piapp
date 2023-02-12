@@ -145,7 +145,19 @@ void vsb_process(VSB_State * restrict st, float* dst[], float* src[], float* spe
     if (ipos != ipos_prev) {
       if (speed_prev > 0.f) {
         // writing during ipos_prev --> ipos
-        ipos_temp = ipos > ipos_prev ? ipos : ipos + st->loop_len;
+        if (st->loop_start < st->loop_end) {
+          ipos_temp = ipos > ipos_prev ? ipos : ipos + st->loop_len;
+        }
+        else {
+          if (ipos < st->loop_end && ipos_prev >= st->loop_start)
+            ipos_temp = ipos + st->size;
+          else if (ipos_prev < st->loop_end && ipos >= st->loop_start) {
+            ipos_temp = ipos - (st->loop_start - st->loop_end);
+          }
+          else {
+            ipos_temp = ipos;
+          }
+        }
         for (j=ipos_prev+1; j<=ipos_temp; j++) {
           bal1 = ((float)j - fpos_prev) / (fpos - fpos_prev);
           bal0 = 1.f - bal1;
@@ -158,8 +170,20 @@ void vsb_process(VSB_State * restrict st, float* dst[], float* src[], float* spe
         }
       }
       else if (speed_prev < 0.f) {
-        // writing during ipos_prev --> ipos
-        ipos_temp = ipos < ipos_prev ? ipos : ipos - st->loop_len;
+        // writing during ipos_prev --> ipos        
+        if (st->loop_start < st->loop_end) {
+          ipos_temp = ipos < ipos_prev ? ipos : ipos - st->loop_len;
+        }
+        else {
+          if (ipos_prev < st->loop_end && ipos >= st->loop_start)
+            ipos_temp = ipos - st->size;
+          else if (ipos < st->loop_end && ipos_prev >= st->loop_start) {
+            ipos_temp = ipos + (st->loop_start - st->loop_end);
+          }
+          else {
+            ipos_temp = ipos;
+          }
+        }
         for (j=ipos_prev; j>ipos_temp; j--) {
           bal1 = (fpos_prev - (float)j) / (fpos_prev - fpos);
           bal0 = 1.f - bal1;
