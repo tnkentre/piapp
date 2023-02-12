@@ -145,7 +145,7 @@ void vsb_process(VSB_State * restrict st, float* dst[], float* src[], float* spe
     if (ipos != ipos_prev) {
       if (speed_prev > 0.f) {
         // writing during ipos_prev --> ipos
-                ipos_temp = ipos > ipos_prev ? ipos : ipos + st->loop_len;
+        ipos_temp = ipos > ipos_prev ? ipos : ipos + st->loop_len;
         for (j=ipos_prev+1; j<=ipos_temp; j++) {
           bal1 = ((float)j - fpos_prev) / (fpos - fpos_prev);
           bal0 = 1.f - bal1;
@@ -192,10 +192,22 @@ void vsb_set_feedbackgain(VSB_State * restrict st, float feedbackgain)
 void vsb_set_loop(VSB_State * restrict st, int loop_start, int loop_len)
 {
   if (loop_start < st->size && st->loop_len <= st->size) {
+    float offset = st->fpos - st->loop_start;
+    while (offset < 0.f) offset += (st->size);
     st->loop_start = loop_start;
     st->loop_len   = loop_len;
     st->loop_end = st->loop_start + st->loop_len;
     while(st->loop_end > st->size) st->loop_end -= st->size;
+    if (st->loop_start < st->loop_end) {
+      if (st->fpos < st->loop_start || st->fpos >= st->loop_end) {
+        st->fpos = st->loop_start + offset;
+      }
+    }
+    else {
+      if (st->fpos >= st->loop_end && st->fpos < st->loop_start) {
+        st->fpos = st->loop_start + offset;
+      }
+    }
     ADJIDX(st->fpos, st->loop_start, st->loop_end, st->size);
   }
 }

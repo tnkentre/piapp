@@ -58,9 +58,9 @@ struct TurntableState_ {
   float monitor;
   int   looplen;
   int   looplen_;
+  float loopposin;
   float looppos;
-  int   looppos_modify_for_update;
-  int   loopstart;
+  int   loopidx;
   int   loopsize;
   int   size;
   int   ipos;
@@ -69,8 +69,10 @@ struct TurntableState_ {
   float rec_startspeed;
 
   /* for OSC */
-  int vinyl_len;
+  int xy_len;
   float* vinyl;
+  float* loopstart;
+  float* loopend;
 
   /* Audio Components */
   TCANALYSIS_State * tcana;
@@ -79,18 +81,21 @@ struct TurntableState_ {
 } ;
 
 static const RegDef_t rd[] = {
-  AC_REGDEF(flags,   CLI_ACXPTM, TurntableState, "Control flags"),
-  AC_REGDEF(ingain,  CLI_ACFPTM, TurntableState, "Input gain"),
-  AC_REGDEF(recgain, CLI_ACFPTM, TurntableState, "Recording gain"),
-  AC_REGDEF(recfade, CLI_ACFPTM, TurntableState, "Fade out of recording"),
-  AC_REGDEF(overdub, CLI_ACFPTM, TurntableState, "overdub"),
-  AC_REGDEF(fdbal,   CLI_ACFPTM, TurntableState, "Balance to FD"),
-  AC_REGDEF(monitor, CLI_ACFPTM, TurntableState, "Input monitor level"),
-  AC_REGDEF(looplen, CLI_ACIPTM, TurntableState, "loop length"),
-  AC_REGDEF(looppos, CLI_ACFPTM, TurntableState, "loop position"),
-  AC_REGDEF(ipos,    CLI_ACIPTM, TurntableState, "track position"),
-  AC_REGDEF(fpos,    CLI_ACFPTM, TurntableState, "track position"),
-  AC_REGADEF(vinyl, vinyl_len, CLI_ACFPTMA,   TurntableState, "position"),
+  AC_REGDEF(flags,    CLI_ACXPTM, TurntableState, "Control flags"),
+  AC_REGDEF(ingain,   CLI_ACFPTM, TurntableState, "Input gain"),
+  AC_REGDEF(recgain,  CLI_ACFPTM, TurntableState, "Recording gain"),
+  AC_REGDEF(recfade,  CLI_ACFPTM, TurntableState, "Fade out of recording"),
+  AC_REGDEF(overdub,  CLI_ACFPTM, TurntableState, "overdub"),
+  AC_REGDEF(fdbal,    CLI_ACFPTM, TurntableState, "Balance to FD"),
+  AC_REGDEF(monitor,  CLI_ACFPTM, TurntableState, "Input monitor level"),
+  AC_REGDEF(looplen,  CLI_ACIPTM, TurntableState, "loop length"),
+  AC_REGDEF(loopposin,CLI_ACFPTM, TurntableState, "loop position"),
+  AC_REGDEF(looppos,  CLI_ACFPTM, TurntableState, "loop position"),
+  AC_REGDEF(ipos,     CLI_ACIPTM, TurntableState, "track position"),
+  AC_REGDEF(fpos,     CLI_ACFPTM, TurntableState, "track position"),
+  AC_REGADEF(vinyl,     xy_len, CLI_ACFPTMA,   TurntableState, "position"),
+  AC_REGADEF(loopstart, xy_len, CLI_ACFPTMA,   TurntableState, "loop start position"),
+  AC_REGADEF(loopend,   xy_len, CLI_ACFPTMA,   TurntableState, "loop start position"),
 };
 
 TurntableState* Turntable_init(const char *name, int fs, int frame_size)
@@ -115,8 +120,10 @@ TurntableState* Turntable_init(const char *name, int fs, int frame_size)
   st->monitor    = 1.0f;
   st->looplen    = 4;
 
-  st->vinyl_len  = 2;
-  st->vinyl = MEM_ALLOC(MEM_SDRAM, float, st->vinyl_len, 4);
+  st->xy_len  = 2;
+  st->vinyl     = MEM_ALLOC(MEM_SDRAM, float, st->xy_len, 4);
+  st->loopstart = MEM_ALLOC(MEM_SDRAM, float, st->xy_len, 4);
+  st->loopend   = MEM_ALLOC(MEM_SDRAM, float, st->xy_len, 4);
 
   sprintf(subname, "%s_tcana",name);
   st->tcana = tcanalysis_init(subname, st->fs, 1000.f);
@@ -129,7 +136,7 @@ TurntableState* Turntable_init(const char *name, int fs, int frame_size)
   sprintf(subname, "%s_tdvsb",name);    
   st->tdvsb = vsb_init(subname, st->size);
 
-  st->loopstart  = 0;
+  st->loopidx  = 0;
   st->loopsize   = st->size;
 
   return st;
@@ -138,6 +145,7 @@ TurntableState* Turntable_init(const char *name, int fs, int frame_size)
 void Turntable_proc(TurntableState* st, float* out[], float* in[], float* tc[])
 {
   int frame_size = st->frame_size;
+  int beatsize = st->size / 8;
 
   VARDECLR(float, speed);
   VARDECLR(float*, in_adj);
@@ -159,38 +167,43 @@ void Turntable_proc(TurntableState* st, float* out[], float* in[], float* tc[])
   if (st->looplen != st->looplen_) {
     switch(st->looplen) {
     case 0:
-      st->loopsize = st->size / 8;
+      st->loopsize = beatsize;
       break;
     case 1:
-      st->loopsize = st->size / 4;
+      st->loopsize = 2 * beatsize;
       break;
     case 2:
-      st->loopsize = st->size * 3 / 8;
+      st->loopsize = 3 * beatsize;
       break;
     case 3:
-      st->loopsize = st->size / 2;
+      st->loopsize = 4 * beatsize;
       break;
     default:
     case 4:
-      st->loopsize = st->size;
+      st->loopsize = 8 * beatsize;
       break;
     }
     /* get the current beat and set looppos */
-    st->looppos = (int)(vsb_get_pos(st->tdvsb) / (st->size / 8)) / 8.f;
-
+    st->looppos = (int)(vsb_get_pos(st->tdvsb) / beatsize) / 8.f;
     st->looplen_ = st->looplen;
   }
   /* loop posistion */
-  if (st->looppos >= 0.f && st->looppos <= 1.f) {
-    st->loopstart = (int)((st->looppos) * 8) * (st->size / 8);
+  if (st->loopposin >= 0.f && st->loopposin <= 1.f) {
+    st->loopidx = (int)((st->loopposin) * 8) * (st->size / 8);
   }
-  st->looppos = (float)(st->loopstart) / (st->size) + 0.0625f;
-  *((uint32_t*)(&st->looppos)) += st->looppos_modify_for_update;
-  st->looppos_modify_for_update = st->looppos_modify_for_update > 3 ? 0 : st->looppos_modify_for_update+1;
+  st->looppos = (float)(st->loopidx) / (st->size) + 0.0625f;
+
+  /* loop region */
+  float pos;
+  st->loopstart[0] = 10.f * RECIP(30.48f);
+  st->loopstart[1] = (float)(st->loopidx) / (st->size);
+  pos = (float)(st->loopidx + st->loopsize) / (st->size); if (pos > 1.0) pos-= 1.f;
+  st->loopend[0] = 10.f * RECIP(30.48f);
+  st->loopend[1] = pos;
 
   /* update loop */
-  vsb_set_loop(st->tdvsb, st->loopstart, st->loopsize);
-  FBvsb_set_loop(st->fdvsb, st->loopstart, st->loopsize);
+  vsb_set_loop(st->tdvsb, st->loopidx, st->loopsize);
+  FBvsb_set_loop(st->fdvsb, st->loopidx, st->loopsize);
 
   /* Compute speed from TC sound */
   tcanalysis_process(st->tcana, speed, tc[0], tc[1], frame_size);

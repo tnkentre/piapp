@@ -172,7 +172,10 @@ void AudioProc_init(void)
     sprintf(str, "tt%d", i);    oscac_add_acreg(st->oscac, str, "fdbal");
     sprintf(str, "tt%d", i);    oscac_add_acreg(st->oscac, str, "monitor");
     sprintf(str, "tt%d", i);    oscac_add_acreg(st->oscac, str, "looplen");
+    sprintf(str, "tt%d", i);    oscac_add_acreg(st->oscac, str, "looppos");
     sprintf(str, "tt%d", i);    oscac_add_acreg(st->oscac, str, "vinyl");
+    sprintf(str, "tt%d", i);    oscac_add_acreg(st->oscac, str, "loopstart");
+    sprintf(str, "tt%d", i);    oscac_add_acreg(st->oscac, str, "loopend");
   }
   oscac_set_moninterval(st->oscac, 20);
 
