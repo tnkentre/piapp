@@ -43,6 +43,7 @@ struct TCANALYSIS_State_ {
   float zcr_base;
   float direction;
   float speed;
+  float speed_avg;
   float tcL;
   float tcR;
   int   zcr_L;
@@ -52,6 +53,7 @@ struct TCANALYSIS_State_ {
   float level_thld;
   float level;
   float level_avg;
+  float speed_alpha;
 } ;
 
 static const RegDef_t rd[] = {
@@ -59,6 +61,8 @@ static const RegDef_t rd[] = {
   AC_REGDEF(level,        CLI_ACFPTM,   TCANALYSIS_State, "Actual level of input"),
   AC_REGDEF(level_avg,    CLI_ACFPTM,   TCANALYSIS_State, "Average level of input"),
   AC_REGDEF(speed,        CLI_ACFPTM,   TCANALYSIS_State, "Speed"),
+  AC_REGDEF(speed_avg,    CLI_ACFPTM,   TCANALYSIS_State, "Speed(smooth)"),
+  AC_REGDEF(speed_alpha,  CLI_ACFPTM,   TCANALYSIS_State, "Speed alpha"),
 };
 
 TCANALYSIS_State *tcanalysis_init(const char * name, float fs, float freq_tc)
@@ -81,6 +85,7 @@ TCANALYSIS_State *tcanalysis_init(const char * name, float fs, float freq_tc)
   st->level_thld = -40.0f;
   st->level      = -100.0f;
   st->level_avg  = -100.0f;
+  st->speed_alpha = 0.75f;
 
   return st;
 }
@@ -132,7 +137,10 @@ void tcanalysis_process(TCANALYSIS_State * restrict st, float* speed, float* tcL
       st->tcL = tcL[i];
       st->tcR = tcR[i];
     }
+    /* speed average */
+    st->speed_avg = st->speed_alpha * st->speed_avg + (1.f - st->speed_alpha) * st->speed * st->direction;
+    
     /* Put the result */
-    speed[i] = st->speed * st->direction;
+    speed[i] = st->speed_avg;
   }
 }
