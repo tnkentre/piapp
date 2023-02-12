@@ -35,13 +35,14 @@
 AC4_MODULE;
 
 /* modify buffer index to be within the range */
-#define ADJIDX(idx, start, end, size)  do {			    		\
+#define ADJIDX(idx, start, end, size)  do {		\
     if (start < end) {                                  \
       while(idx < start) idx += (end-start);            \
       while(idx >= end)  idx -= (end-start);            \
     }                                                   \
     else {                                              \
-      while(idx < start)     idx += size;               \
+      if (idx < (start + end)/2) idx += size;           \
+      while(idx < start)     idx += (size-start+end);	\
       while(idx >= end+size) idx -= (size-start+end);   \
       if (idx >= size) idx -= size;                     \
     }                                                   \
