@@ -122,7 +122,7 @@ FBVSB_State *FBvsb_init(const char * name, int nch, int fs, int frame_size, floa
   const FB_filters_info * fbinfo;
 
   int fft_size      = 2 * frame_size;
-  int fbfilter_size = 2 * fft_size;
+  int fbfilter_size = 3 * fft_size;
   int nband         = fft_size / 2;
 
   fbinfo = FB_filters_getinfo(frame_size, fft_size, fbfilter_size);
@@ -139,7 +139,7 @@ FBVSB_State *FBvsb_init(const char * name, int nch, int fs, int frame_size, floa
   st->nch           = nch;
   st->nband         = nband;
   st->nhist         = (int)(length_sec * fs / frame_size);
-  st->loop_len      = st->nhist * st->nband;
+  st->loop_len      = st->nhist * st->frame_size;
   st->loop_start    = 0;
   st->loop_end      = st->loop_len;
 

@@ -49,7 +49,7 @@ AC4_MODULE;
  */
 #define FS           (48000)
 //#define FRAME_SIZE   (FS/100)
-#define FRAME_SIZE   (512)
+#define FRAME_SIZE   (256)
 #define NTURNTABLE   (2)
 
 typedef enum {
