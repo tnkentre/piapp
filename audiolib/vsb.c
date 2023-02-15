@@ -167,7 +167,7 @@ void vsb_process(VSB_State * restrict st, float* dst[], float* src[], float* spe
           st->buf[0][bufidx] *= st->feedbackgain;
           st->buf[1][bufidx] *= st->feedbackgain;
           st->buf[0][bufidx] += st->recgain * (bal0 * src_prev[0] + bal1 * src[0][i]);
-          st->buf[1][bufidx] += st->recgain * (bal0 * src_prev[1] + bal1 * src[0][i]);
+          st->buf[1][bufidx] += st->recgain * (bal0 * src_prev[1] + bal1 * src[1][i]);
         }
       }
       else if (speed_prev < 0.f) {
@@ -193,7 +193,7 @@ void vsb_process(VSB_State * restrict st, float* dst[], float* src[], float* spe
           st->buf[0][bufidx] *= st->feedbackgain;
           st->buf[1][bufidx] *= st->feedbackgain;
           st->buf[0][bufidx] += st->recgain * (bal0 * src_prev[0] + bal1 * src[0][i]);
-          st->buf[1][bufidx] += st->recgain * (bal0 * src_prev[1] + bal1 * src[0][i]);
+          st->buf[1][bufidx] += st->recgain * (bal0 * src_prev[1] + bal1 * src[1][i]);
         }
       }
     }
